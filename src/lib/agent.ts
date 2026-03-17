@@ -256,9 +256,10 @@ async function getUnrepliedComments(account: ConnectedAccount): Promise<Engageme
         break;
       }
       case "x": {
+        // Get mentions/replies to the user's tweets
         const opts = makeXOptions(account);
-        const tweets = await xApi.getUserTweets(opts, 5);
-        for (const tweet of tweets.data || []) {
+        const mentions = await xApi.getMentions(opts, 10);
+        for (const tweet of mentions.data || []) {
           opps.push({
             id: tweet.id, platform: "x", type: "comment",
             targetId: tweet.id, content: tweet.text,

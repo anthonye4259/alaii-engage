@@ -134,8 +134,14 @@ function loadAccountsFromEnv(): ConnectedAccount[] {
       if (parts[3]) metadata.pageToken = parts[3];
       if (platform === "instagram") metadata.igUserId = platformUserId;
     }
+    if (platform === "tiktok") {
+      metadata.openId = platformUserId;
+    }
     if (platform === "x") {
       metadata.userId = platformUserId;
+    }
+    if (platform === "reddit") {
+      metadata.username = platformUserId;
     }
     if (platform === "linkedin") {
       if (parts[2]) metadata.personUrn = parts[2];

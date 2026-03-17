@@ -216,7 +216,7 @@ export async function executePlatformAction(request: EngageRequest): Promise<unk
         case "reply_own_comment":
           return linkedinApi.commentOnPost(targetId, content || "", opts);
         case "repost":
-          return linkedinApi.sharePost(opts.personUrn, content || "", opts);
+          return linkedinApi.sharePost(targetId, content || "", opts);
         default:
           return { skipped: true, reason: "unsupported_action" };
       }
