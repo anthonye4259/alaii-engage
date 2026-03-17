@@ -200,7 +200,7 @@ function buildUserPrompt(
  */
 function parseVariations(text: string): string[] {
   // Try to parse "1. ...\n2. ...\n3. ..."
-  const numbered = text.match(/\d+\.\s*(.+?)(?=\n\d+\.|$)/gs);
+  const numbered = text.split("\n").filter((l) => /^\d+\.\s/.test(l));
   if (numbered && numbered.length >= 2) {
     return numbered.map((v) => v.replace(/^\d+\.\s*/, "").replace(/^["']|["']$/g, "").trim());
   }
