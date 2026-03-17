@@ -113,7 +113,7 @@ export class BrowserSession {
     await this.page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => false });
       // Override chrome automation flags
-      (window as Record<string, unknown>).chrome = { runtime: {} };
+      (window as unknown as Record<string, unknown>).chrome = { runtime: {} };
     });
 
     await this.page.setUserAgent(ua);
