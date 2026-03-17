@@ -1,44 +1,45 @@
 /**
- * Account Health Monitor — Track account safety signals
- * 
+ * Account Health Monitor — Redis-backed safety tracking
+ *
  * Monitors for soft bans, comment removals, and other red flags.
  * Auto-pauses accounts when risk is detected.
+ * State persists across Vercel cold starts via Upstash Redis.
  */
+
+import * as store from "./store";
 
 export type HealthStatus = "healthy" | "warning" | "paused" | "suspended";
 
 export type IncidentType =
-  | "comment_removed"      // Platform removed a comment
-  | "action_blocked"       // Platform blocked an action
-  | "rate_limit_hit"       // Hit platform's own rate limit
-  | "dm_bounced"           // DM couldn't be delivered
-  | "soft_ban"             // Temporary restriction from platform
-  | "hard_ban"             // Account suspended
-  | "api_error"            // Unexpected API error
-  | "content_flagged";     // Platform flagged content
-
-interface Incident {
-  type: IncidentType;
-  timestamp: Date;
-  platform: string;
-  details: string;
-  accountId: string;
-}
+  | "comment_removed"
+  | "action_blocked"
+  | "rate_limit_hit"
+  | "dm_bounced"
+  | "soft_ban"
+  | "hard_ban"
+  | "api_error"
+  | "content_flagged";
 
 interface AccountHealth {
   accountId: string;
   platform: string;
   status: HealthStatus;
-  incidents: Incident[];
-  pausedUntil: Date | null;
-  riskScore: number;         // 0-100
-  lastChecked: Date;
+  pausedUntil: string | null;  // ISO string for JSON serialization
+  riskScore: number;
+  lastChecked: string;
   totalActionsToday: number;
-  successRate: number;       // 0-1
+  successRate: number;
+}
+
+interface StoredIncident {
+  type: IncidentType;
+  timestamp: string;
+  platform: string;
+  details: string;
 }
 
 // Auto-pause rules
-const PAUSE_RULES = {
+const PAUSE_RULES: Record<IncidentType, { threshold: number; pauseHours: number; message: string }> = {
   comment_removed: { threshold: 2, pauseHours: 24, message: "2+ comments removed — paused for 24 hours" },
   action_blocked: { threshold: 3, pauseHours: 12, message: "3+ actions blocked — paused for 12 hours" },
   dm_bounced: { threshold: 3, pauseHours: 48, message: "3+ DMs bounced — DM automation disabled for 48 hours" },
@@ -49,106 +50,114 @@ const PAUSE_RULES = {
   api_error: { threshold: 10, pauseHours: 1, message: "Too many API errors — paused for 1 hour" },
 };
 
-// In-memory store (replace with database in production)
-const healthStore: Map<string, AccountHealth> = new Map();
+const HEALTH_TTL = 7 * 24 * 3600; // 7 days
+const INCIDENT_TTL = 24 * 3600;   // 24 hours (only recent incidents matter)
 
-/**
- * Get or create account health record
- */
-export function getAccountHealth(accountId: string, platform: string): AccountHealth {
-  const key = `${accountId}:${platform}`;
-  if (!healthStore.has(key)) {
-    healthStore.set(key, {
-      accountId,
-      platform,
-      status: "healthy",
-      incidents: [],
-      pausedUntil: null,
-      riskScore: 0,
-      lastChecked: new Date(),
-      totalActionsToday: 0,
-      successRate: 1,
-    });
-  }
-  return healthStore.get(key)!;
+function healthKey(accountId: string, platform: string): string {
+  return `health:${accountId}:${platform}`;
+}
+
+function incidentKey(accountId: string, platform: string): string {
+  return `incidents:${accountId}:${platform}`;
 }
 
 /**
- * Report an incident and check if account should be paused
+ * Get or create account health record (Redis-backed)
  */
-export function reportIncident(
+export async function getAccountHealth(accountId: string, platform: string): Promise<AccountHealth> {
+  const key = healthKey(accountId, platform);
+  const existing = await store.getJSON<AccountHealth>(key);
+
+  if (existing) return existing;
+
+  const defaultHealth: AccountHealth = {
+    accountId,
+    platform,
+    status: "healthy",
+    pausedUntil: null,
+    riskScore: 0,
+    lastChecked: new Date().toISOString(),
+    totalActionsToday: 0,
+    successRate: 1,
+  };
+
+  await store.setJSON(key, defaultHealth, HEALTH_TTL);
+  return defaultHealth;
+}
+
+/**
+ * Save account health to store
+ */
+async function saveHealth(health: AccountHealth): Promise<void> {
+  const key = healthKey(health.accountId, health.platform);
+  health.lastChecked = new Date().toISOString();
+  await store.setJSON(key, health, HEALTH_TTL);
+}
+
+/**
+ * Report an incident and check if account should be paused (Redis-backed)
+ */
+export async function reportIncident(
   accountId: string,
   platform: string,
   type: IncidentType,
   details: string
-): { paused: boolean; message: string; pausedUntil?: Date } {
-  const health = getAccountHealth(accountId, platform);
+): Promise<{ paused: boolean; message: string; pausedUntil?: Date }> {
+  const health = await getAccountHealth(accountId, platform);
 
-  // Record the incident
-  const incident: Incident = {
+  // Store incident — use a counter per incident type (24h TTL)
+  const incKey = `${incidentKey(accountId, platform)}:${type}`;
+  const recentCount = await store.increment(incKey, INCIDENT_TTL);
+
+  // Also store the incident detail for debugging
+  const detailKey = `${incidentKey(accountId, platform)}:latest`;
+  const incident: StoredIncident = {
     type,
-    timestamp: new Date(),
+    timestamp: new Date().toISOString(),
     platform,
     details,
-    accountId,
   };
-  health.incidents.push(incident);
-
-  // Count recent incidents of this type (last 24 hours)
-  const dayAgo = new Date(Date.now() - 86_400_000);
-  const recentOfType = health.incidents.filter(
-    (i) => i.type === type && i.timestamp > dayAgo
-  ).length;
+  await store.setJSON(detailKey, incident, INCIDENT_TTL);
 
   // Check pause rules
   const rule = PAUSE_RULES[type];
-  if (recentOfType >= rule.threshold) {
+  if (recentCount >= rule.threshold) {
     if (rule.pauseHours === -1) {
-      // Permanent pause (hard ban)
       health.status = "suspended";
       health.pausedUntil = null;
-      return {
-        paused: true,
-        message: rule.message,
-      };
+      await saveHealth(health);
+      return { paused: true, message: rule.message };
     }
 
     const pausedUntil = new Date(Date.now() + rule.pauseHours * 3_600_000);
     health.status = "paused";
-    health.pausedUntil = pausedUntil;
+    health.pausedUntil = pausedUntil.toISOString();
+    await saveHealth(health);
 
-    return {
-      paused: true,
-      message: rule.message,
-      pausedUntil,
-    };
+    return { paused: true, message: rule.message, pausedUntil };
   }
 
   // Update risk score
-  health.riskScore = calculateRiskScore(health);
-
+  health.riskScore = calculateRiskScore(recentCount, type);
   if (health.riskScore > 70) {
     health.status = "warning";
   }
+  await saveHealth(health);
 
-  return {
-    paused: false,
-    message: `Incident recorded: ${details}`,
-  };
+  return { paused: false, message: `Incident recorded: ${details}` };
 }
 
 /**
- * Check if an account is currently safe to use
+ * Check if an account is currently safe to use (Redis-backed)
  */
-export function isAccountSafe(accountId: string, platform: string): {
+export async function isAccountSafe(accountId: string, platform: string): Promise<{
   safe: boolean;
   status: HealthStatus;
   reason?: string;
   resumesAt?: Date;
-} {
-  const health = getAccountHealth(accountId, platform);
+}> {
+  const health = await getAccountHealth(accountId, platform);
 
-  // Check if suspended
   if (health.status === "suspended") {
     return {
       safe: false,
@@ -157,23 +166,24 @@ export function isAccountSafe(accountId: string, platform: string): {
     };
   }
 
-  // Check if paused
   if (health.status === "paused" && health.pausedUntil) {
-    if (new Date() < health.pausedUntil) {
+    const pausedUntilDate = new Date(health.pausedUntil);
+    if (new Date() < pausedUntilDate) {
       return {
         safe: false,
         status: "paused",
         reason: "Account temporarily paused for safety",
-        resumesAt: health.pausedUntil,
+        resumesAt: pausedUntilDate,
       };
     } else {
-      // Pause expired, reset to healthy
+      // Pause expired
       health.status = "healthy";
       health.pausedUntil = null;
+      health.riskScore = Math.max(0, health.riskScore - 20);
+      await saveHealth(health);
     }
   }
 
-  // Check risk score
   if (health.riskScore > 80) {
     return {
       safe: false,
@@ -186,12 +196,9 @@ export function isAccountSafe(accountId: string, platform: string): {
 }
 
 /**
- * Calculate risk score based on recent incidents
+ * Calculate risk score based on incident severity and count
  */
-function calculateRiskScore(health: AccountHealth): number {
-  const dayAgo = new Date(Date.now() - 86_400_000);
-  const recentIncidents = health.incidents.filter((i) => i.timestamp > dayAgo);
-
+function calculateRiskScore(recentCount: number, latestType: IncidentType): number {
   const weights: Record<IncidentType, number> = {
     comment_removed: 15,
     action_blocked: 20,
@@ -203,29 +210,19 @@ function calculateRiskScore(health: AccountHealth): number {
     content_flagged: 25,
   };
 
-  let score = 0;
-  for (const incident of recentIncidents) {
-    score += weights[incident.type] || 5;
-  }
-
-  return Math.min(score, 100);
+  const weight = weights[latestType] || 5;
+  return Math.min(recentCount * weight, 100);
 }
 
 /**
- * Get health summary for all accounts
+ * Manually resume a paused account (Redis-backed)
  */
-export function getAllAccountHealth(): AccountHealth[] {
-  return Array.from(healthStore.values());
-}
-
-/**
- * Manually resume a paused account
- */
-export function resumeAccount(accountId: string, platform: string): void {
-  const health = getAccountHealth(accountId, platform);
+export async function resumeAccount(accountId: string, platform: string): Promise<void> {
+  const health = await getAccountHealth(accountId, platform);
   if (health.status === "paused") {
     health.status = "healthy";
     health.pausedUntil = null;
     health.riskScore = Math.max(0, health.riskScore - 20);
+    await saveHealth(health);
   }
 }

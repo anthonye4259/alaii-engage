@@ -1,9 +1,12 @@
 /**
- * Rate Limiter — Per-account, per-action throttling
- * 
- * Uses sliding window counters to enforce safe engagement rates.
+ * Rate Limiter — Per-account, per-action throttling (Redis-backed)
+ *
+ * Uses sliding window counters backed by Upstash Redis.
+ * Falls back to in-memory when Redis is not configured.
  * Randomizes timing to mimic human patterns.
  */
+
+import * as store from "./store";
 
 export type ActionType =
   | "reply_own_comment"    // Reply to comments on YOUR posts (safest)
@@ -21,8 +24,8 @@ export type RiskTier = "low" | "medium" | "high";
 interface RateLimitConfig {
   maxPerHour: number;
   maxPerDay: number;
-  minDelayMs: number;      // Minimum delay between actions (ms)
-  maxDelayMs: number;      // Maximum delay (randomized for human-like behavior)
+  minDelayMs: number;
+  maxDelayMs: number;
   riskTier: RiskTier;
   requiresApproval: boolean;
   description: string;
@@ -30,168 +33,131 @@ interface RateLimitConfig {
 
 // Rate limits per action type
 export const RATE_LIMITS: Record<ActionType, RateLimitConfig> = {
-  // Tier 1 — Low risk, ship immediately
+  // Tier 1 — Low risk
   reply_own_comment: {
-    maxPerHour: 30,
-    maxPerDay: 200,
-    minDelayMs: 15_000,     // 15 seconds minimum between replies
-    maxDelayMs: 120_000,    // up to 2 minutes
-    riskTier: "low",
-    requiresApproval: false,
+    maxPerHour: 30, maxPerDay: 200,
+    minDelayMs: 15_000, maxDelayMs: 120_000,
+    riskTier: "low", requiresApproval: false,
     description: "Reply to comments on your own posts",
   },
   like_mention: {
-    maxPerHour: 50,
-    maxPerDay: 300,
-    minDelayMs: 5_000,
-    maxDelayMs: 30_000,
-    riskTier: "low",
-    requiresApproval: false,
+    maxPerHour: 50, maxPerDay: 300,
+    minDelayMs: 5_000, maxDelayMs: 30_000,
+    riskTier: "low", requiresApproval: false,
     description: "Like posts that mention your account",
   },
   like_comment: {
-    maxPerHour: 40,
-    maxPerDay: 250,
-    minDelayMs: 3_000,
-    maxDelayMs: 20_000,
-    riskTier: "low",
-    requiresApproval: false,
+    maxPerHour: 40, maxPerDay: 250,
+    minDelayMs: 3_000, maxDelayMs: 20_000,
+    riskTier: "low", requiresApproval: false,
     description: "Like comments on your posts",
   },
 
-  // Tier 2 — Medium risk, ship with throttling
+  // Tier 2 — Medium risk
   comment_hashtag: {
-    maxPerHour: 10,
-    maxPerDay: 60,
-    minDelayMs: 60_000,     // 1 minute minimum between comments
-    maxDelayMs: 300_000,    // up to 5 minutes
-    riskTier: "medium",
-    requiresApproval: false,
+    maxPerHour: 10, maxPerDay: 60,
+    minDelayMs: 60_000, maxDelayMs: 300_000,
+    riskTier: "medium", requiresApproval: false,
     description: "Comment on posts matching target hashtags",
   },
   repost: {
-    maxPerHour: 5,
-    maxPerDay: 20,
-    minDelayMs: 120_000,
-    maxDelayMs: 600_000,
-    riskTier: "medium",
-    requiresApproval: false,
+    maxPerHour: 5, maxPerDay: 20,
+    minDelayMs: 120_000, maxDelayMs: 600_000,
+    riskTier: "medium", requiresApproval: false,
     description: "Share or repost content",
   },
   reply_dm_received: {
-    maxPerHour: 15,
-    maxPerDay: 80,
-    minDelayMs: 30_000,
-    maxDelayMs: 180_000,
-    riskTier: "medium",
-    requiresApproval: false,
+    maxPerHour: 15, maxPerDay: 80,
+    minDelayMs: 30_000, maxDelayMs: 180_000,
+    riskTier: "medium", requiresApproval: false,
     description: "Reply to DMs you received (reactive only)",
   },
 
-  // Tier 3 — High risk, requires human approval
+  // Tier 3 — High risk
   dm_new_follower: {
-    maxPerHour: 5,
-    maxPerDay: 25,
-    minDelayMs: 300_000,
-    maxDelayMs: 900_000,
-    riskTier: "high",
-    requiresApproval: true,
+    maxPerHour: 5, maxPerDay: 25,
+    minDelayMs: 300_000, maxDelayMs: 900_000,
+    riskTier: "high", requiresApproval: true,
     description: "Send welcome DM to new followers",
   },
   dm_cold_outreach: {
-    maxPerHour: 3,
-    maxPerDay: 15,
-    minDelayMs: 600_000,
-    maxDelayMs: 1_800_000,
-    riskTier: "high",
-    requiresApproval: true,
+    maxPerHour: 3, maxPerDay: 15,
+    minDelayMs: 600_000, maxDelayMs: 1_800_000,
+    riskTier: "high", requiresApproval: true,
     description: "Send cold outreach DMs",
   },
   comment_campaign: {
-    maxPerHour: 5,
-    maxPerDay: 30,
-    minDelayMs: 120_000,
-    maxDelayMs: 600_000,
-    riskTier: "high",
-    requiresApproval: true,
+    maxPerHour: 5, maxPerDay: 30,
+    minDelayMs: 120_000, maxDelayMs: 600_000,
+    riskTier: "high", requiresApproval: true,
     description: "High-volume comment campaigns",
   },
 };
 
-// In-memory sliding window (replace with Redis in production)
-const actionWindows: Map<string, number[]> = new Map();
-
 /**
- * Get a unique key for an account + action combination
+ * Check if an action is allowed under rate limits (Redis-backed)
  */
-function getKey(accountId: string, action: ActionType): string {
-  return `${accountId}:${action}`;
-}
-
-/**
- * Check if an action is allowed under rate limits
- */
-export function canPerformAction(accountId: string, action: ActionType): {
+export async function canPerformAction(accountId: string, action: ActionType): Promise<{
   allowed: boolean;
   reason?: string;
   retryAfterMs?: number;
-} {
+}> {
   const config = RATE_LIMITS[action];
-  const key = getKey(accountId, action);
-  const now = Date.now();
-  const hourAgo = now - 3_600_000;
-  const dayAgo = now - 86_400_000;
-
-  // Get existing action timestamps
-  const timestamps = actionWindows.get(key) || [];
-
-  // Clean old entries
-  const recent = timestamps.filter((t) => t > dayAgo);
-  actionWindows.set(key, recent);
+  const hourKey = `rate:${accountId}:${action}:hour`;
+  const dayKey = `rate:${accountId}:${action}:day`;
+  const lastKey = `rate:${accountId}:${action}:last`;
 
   // Check hourly limit
-  const hourlyCount = recent.filter((t) => t > hourAgo).length;
+  const hourlyCount = await store.getCount(hourKey);
   if (hourlyCount >= config.maxPerHour) {
-    const oldestInHour = recent.filter((t) => t > hourAgo).sort()[0];
-    const retryAfterMs = oldestInHour + 3_600_000 - now;
     return {
       allowed: false,
-      reason: `Hourly limit reached (${hourlyCount}/${config.maxPerHour}). Try again in ${Math.ceil(retryAfterMs / 60_000)} minutes.`,
-      retryAfterMs,
+      reason: `Hourly limit reached (${hourlyCount}/${config.maxPerHour}).`,
+      retryAfterMs: 60_000, // Retry in 1 min (window will slide)
     };
   }
 
   // Check daily limit
-  if (recent.length >= config.maxPerDay) {
+  const dailyCount = await store.getCount(dayKey);
+  if (dailyCount >= config.maxPerDay) {
     return {
       allowed: false,
-      reason: `Daily limit reached (${recent.length}/${config.maxPerDay}). Try again tomorrow.`,
-      retryAfterMs: dayAgo + 86_400_000 - now,
+      reason: `Daily limit reached (${dailyCount}/${config.maxPerDay}).`,
+      retryAfterMs: 3_600_000,
     };
   }
 
   // Check minimum delay since last action
-  const lastAction = recent.length > 0 ? Math.max(...recent) : 0;
-  if (lastAction > 0 && now - lastAction < config.minDelayMs) {
-    const retryAfterMs = config.minDelayMs - (now - lastAction);
-    return {
-      allowed: false,
-      reason: `Too soon since last action. Wait ${Math.ceil(retryAfterMs / 1000)} seconds.`,
-      retryAfterMs,
-    };
+  const lastActionStr = await store.get(lastKey);
+  if (lastActionStr) {
+    const lastAction = parseInt(lastActionStr, 10);
+    const elapsed = Date.now() - lastAction;
+    if (elapsed < config.minDelayMs) {
+      const retryAfterMs = config.minDelayMs - elapsed;
+      return {
+        allowed: false,
+        reason: `Too soon since last action. Wait ${Math.ceil(retryAfterMs / 1000)}s.`,
+        retryAfterMs,
+      };
+    }
   }
 
   return { allowed: true };
 }
 
 /**
- * Record that an action was performed
+ * Record that an action was performed (Redis-backed)
  */
-export function recordAction(accountId: string, action: ActionType): void {
-  const key = getKey(accountId, action);
-  const timestamps = actionWindows.get(key) || [];
-  timestamps.push(Date.now());
-  actionWindows.set(key, timestamps);
+export async function recordAction(accountId: string, action: ActionType): Promise<void> {
+  const hourKey = `rate:${accountId}:${action}:hour`;
+  const dayKey = `rate:${accountId}:${action}:day`;
+  const lastKey = `rate:${accountId}:${action}:last`;
+
+  await Promise.all([
+    store.increment(hourKey, 3600),      // 1 hour TTL
+    store.increment(dayKey, 86400),      // 24 hour TTL
+    store.set(lastKey, String(Date.now()), 86400),
+  ]);
 }
 
 /**
@@ -203,27 +169,27 @@ export function getHumanDelay(action: ActionType): number {
 }
 
 /**
- * Get current usage stats for an account
+ * Get current usage stats for an account (Redis-backed)
  */
-export function getUsageStats(accountId: string): Record<ActionType, { hourly: number; daily: number; limit: { hourly: number; daily: number } }> {
-  const now = Date.now();
-  const hourAgo = now - 3_600_000;
-  const dayAgo = now - 86_400_000;
-
+export async function getUsageStats(accountId: string): Promise<
+  Record<ActionType, { hourly: number; daily: number; limit: { hourly: number; daily: number } }>
+> {
   const stats = {} as Record<ActionType, { hourly: number; daily: number; limit: { hourly: number; daily: number } }>;
 
   for (const action of Object.keys(RATE_LIMITS) as ActionType[]) {
-    const key = getKey(accountId, action);
-    const timestamps = actionWindows.get(key) || [];
+    const hourKey = `rate:${accountId}:${action}:hour`;
+    const dayKey = `rate:${accountId}:${action}:day`;
     const config = RATE_LIMITS[action];
 
+    const [hourly, daily] = await Promise.all([
+      store.getCount(hourKey),
+      store.getCount(dayKey),
+    ]);
+
     stats[action] = {
-      hourly: timestamps.filter((t) => t > hourAgo).length,
-      daily: timestamps.filter((t) => t > dayAgo).length,
-      limit: {
-        hourly: config.maxPerHour,
-        daily: config.maxPerDay,
-      },
+      hourly,
+      daily,
+      limit: { hourly: config.maxPerHour, daily: config.maxPerDay },
     };
   }
 

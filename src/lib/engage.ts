@@ -45,13 +45,13 @@ export async function engage(request: EngageRequest): Promise<EngageResult> {
   const { accountId, platform, action, content } = request;
 
   // 1. Check account health
-  const healthCheck = isAccountSafe(accountId, platform);
+  const healthCheck = await isAccountSafe(accountId, platform);
   if (!healthCheck.safe) {
     return { success: false, status: "account_paused", message: healthCheck.reason || "Account paused" };
   }
 
   // 2. Check rate limits
-  const rateCheck = canPerformAction(accountId, action);
+  const rateCheck = await canPerformAction(accountId, action);
   if (!rateCheck.allowed) {
     return { success: false, status: "rate_limited", message: rateCheck.reason || "Rate limit reached" };
   }
@@ -96,11 +96,11 @@ export async function engage(request: EngageRequest): Promise<EngageResult> {
       return { success: false, status: "blocked", message: `${action} not available via API and headless service not configured` };
     }
 
-    recordAction(accountId, action);
+    await recordAction(accountId, action);
     return { success: true, status: "executed", message: `${action} executed on ${platform}`, platformResponse: apiResult };
   } catch (err) {
     const statusCode = (err as { status?: number }).status || 500;
-    handlePlatformResponse(accountId, platform, statusCode);
+    await handlePlatformResponse(accountId, platform, statusCode);
     return { success: false, status: "api_error", message: `API error: ${err}` };
   }
 }
@@ -246,15 +246,15 @@ export async function executePlatformAction(request: EngageRequest): Promise<unk
 /**
  * Report platform API errors to account health
  */
-export function handlePlatformResponse(accountId: string, platform: Platform, statusCode: number): void {
+export async function handlePlatformResponse(accountId: string, platform: Platform, statusCode: number): Promise<void> {
   if (statusCode === 429) {
-    reportIncident(accountId, platform, "rate_limit_hit", "Platform rate limit hit");
+    await reportIncident(accountId, platform, "rate_limit_hit", "Platform rate limit hit");
   } else if (statusCode === 403) {
-    reportIncident(accountId, platform, "action_blocked", "Action blocked by platform");
+    await reportIncident(accountId, platform, "action_blocked", "Action blocked by platform");
   } else if (statusCode === 401) {
-    reportIncident(accountId, platform, "api_error", "Auth failed — token may be expired");
+    await reportIncident(accountId, platform, "api_error", "Auth failed — token may be expired");
   } else if (statusCode >= 500) {
-    reportIncident(accountId, platform, "api_error", `Server error: ${statusCode}`);
+    await reportIncident(accountId, platform, "api_error", `Server error: ${statusCode}`);
   }
 }
 

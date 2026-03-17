@@ -9,6 +9,7 @@ import { engage, type Platform } from "./engage";
 import { generateContent, type BusinessContext, type GenerateRequest } from "./ai-generator";
 import { canPerformAction, type ActionType } from "./rate-limiter";
 import { isAccountSafe } from "./account-health";
+import { hasEngaged, markEngaged } from "./dedup";
 
 // Platform API imports
 import * as instagramApi from "./platforms/instagram";
@@ -82,18 +83,36 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
       const account = config.accounts.find((a) => a.platform === platform);
       if (!account) continue;
 
-      const healthCheck = isAccountSafe(account.id, platform);
+      const healthCheck = await isAccountSafe(account.id, platform);
       if (!healthCheck.safe) { results.skipped++; continue; }
 
-      const rateCheck = canPerformAction(account.id, rule.action);
+      const rateCheck = await canPerformAction(account.id, rule.action);
       if (!rateCheck.allowed) { results.skipped++; continue; }
 
       try {
-        const opportunities = await scanForOpportunities(account, rule);
+        let opportunities = await scanForOpportunities(account, rule);
+        
+        // Dedup — filter out already-engaged targets
+        const fresh: EngagementOpportunity[] = [];
+        for (const opp of opportunities) {
+          const seen = await hasEngaged(platform, account.id, opp.targetId);
+          if (!seen) fresh.push(opp);
+        }
+        opportunities = fresh;
+
+        // Smart targeting — score and rank opportunities
+        const scored = opportunities.map((opp) => ({
+          opp,
+          score: scoreOpportunity(opp, config.businessContext),
+        }));
+        scored.sort((a, b) => b.score - a.score);
+
+        // Cap at 5 best opportunities per scan to avoid spamming
+        const topOpportunities = scored.slice(0, 5).map((s) => s.opp);
         results.scanned += opportunities.length;
 
-        for (const opp of opportunities) {
-          const check = canPerformAction(account.id, rule.action);
+        for (const opp of topOpportunities) {
+          const check = await canPerformAction(account.id, rule.action);
           if (!check.allowed) break;
 
           try {
@@ -123,6 +142,11 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
               accessToken: account.accessToken,
               metadata: account.metadata,
             });
+
+            // Mark as engaged to prevent duplicate actions
+            if (result.success) {
+              await markEngaged(platform, account.id, opp.targetId);
+            }
 
             results.actions.push({
               platform,
@@ -446,6 +470,53 @@ function mapActionToGenType(action: ActionType): GenerateRequest["type"] {
     default:
       return "comment_reply";
   }
+}
+
+/**
+ * Score an engagement opportunity for smart targeting (0-100)
+ * Higher = more valuable to engage with
+ */
+function scoreOpportunity(opp: EngagementOpportunity, biz: BusinessContext): number {
+  let score = 50; // Base score
+
+  // Relevance: does the content mention keywords related to our business?
+  if (opp.content && biz.description) {
+    const keywords = [
+      ...biz.description.toLowerCase().split(/\s+/),
+      ...biz.industry.toLowerCase().split(/\s+/),
+      ...(biz.targetAudience || "").toLowerCase().split(/\s+/),
+    ].filter((w) => w.length > 3); // Only meaningful words
+
+    const contentLower = opp.content.toLowerCase();
+    const matches = keywords.filter((kw) => contentLower.includes(kw));
+    score += Math.min(matches.length * 5, 25); // Up to +25 for relevance
+  }
+
+  // Recency: prefer posts < 4 hours old
+  const ageMs = Date.now() - opp.timestamp.getTime();
+  const ageHours = ageMs / 3_600_000;
+  if (ageHours < 1) score += 20;        // < 1 hour: +20
+  else if (ageHours < 4) score += 10;   // < 4 hours: +10
+  else if (ageHours > 24) score -= 15;  // > 24 hours: -15
+
+  // Author quality: filter bot-like accounts
+  if (opp.authorName) {
+    const name = opp.authorName;
+    // Bot signals: all numbers, very short, contains "bot"
+    if (/^\d+$/.test(name)) score -= 30;
+    if (name.toLowerCase().includes("bot")) score -= 20;
+    if (name.length < 3) score -= 10;
+  }
+
+  // Author bio present = higher quality target
+  if (opp.authorBio && opp.authorBio.length > 10) score += 10;
+
+  // Mentions are higher value than hashtag posts
+  if (opp.type === "mention") score += 15;
+  if (opp.type === "comment") score += 10;
+
+  // Clamp to 0-100
+  return Math.max(0, Math.min(100, score));
 }
 
 function sleep(ms: number): Promise<void> {
