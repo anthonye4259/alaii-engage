@@ -17,7 +17,7 @@ import {
   type HeadlessConfig,
   type HeadlessAction,
   type HeadlessPlatform,
-} from "../src/lib/headless/index";
+} from "./headless/index";
 
 const app = express();
 app.use(express.json());
