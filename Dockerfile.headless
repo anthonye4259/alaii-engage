@@ -1,0 +1,56 @@
+# ---- Build stage ----
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Copy headless server files
+COPY headless-server/package.json headless-server/tsconfig.json ./headless-server/
+COPY headless-server/server.ts ./headless-server/
+
+# Copy the shared headless lib
+COPY src/lib/headless/ ./src/lib/headless/
+
+# Install deps and build
+WORKDIR /app/headless-server
+RUN npm install
+RUN npx tsc --outDir dist --rootDir .. --skipLibCheck || true
+
+# ---- Runtime stage ----
+FROM node:20-slim
+
+# Install Chrome dependencies
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Tell Puppeteer to use system Chrome
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+# Copy built files
+COPY --from=builder /app/headless-server/dist ./dist
+COPY --from=builder /app/headless-server/node_modules ./node_modules
+COPY --from=builder /app/headless-server/package.json ./
+
+EXPOSE 3099
+
+CMD ["node", "dist/headless-server/server.js"]

@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  headless:
+    build:
+      context: .
+      dockerfile: Dockerfile.headless
+    ports:
+      - "3099:3099"
+    environment:
+      - PORT=3099
+      - HEADLESS_API_KEY=your-secret-api-key-here
+      - NODE_ENV=production
+    # Cap memory to avoid runaway Chrome processes
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    restart: unless-stopped
