@@ -1,0 +1,96 @@
+openapi: 3.0.3
+info:
+  title: Alaii MCP Engagement API
+  version: 0.1.0
+  description: API for comment/reply/like/repost/DM actions for connected business/creator accounts.
+servers:
+  - url: https://api.mcp.alaii.app/v1
+paths:
+  /accounts:
+    get:
+      summary: List connected accounts
+      responses:
+        '200':
+          description: list of accounts
+  /accounts/{accountId}/comments:
+    get:
+      summary: List recent comments for an account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: comment list
+    post:
+      summary: Reply to a comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                commentId:
+                  type: string
+                body:
+                  type: string
+                actionType:
+                  type: string
+                  enum: [reply, hide, delete]
+      responses:
+        '202':
+          description: accepted
+  /accounts/{accountId}/actions/like:
+    post:
+      summary: Like a target (comment/post)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetId:
+                  type: string
+                targetType:
+                  type: string
+                  enum: [post, comment]
+      responses:
+        '202':
+          description: accepted
+  /accounts/{accountId}/actions/dm:
+    post:
+      summary: Send a DM (requires human approval by default)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipientId:
+                  type: string
+                body:
+                  type: string
+                autoSend:
+                  type: boolean
+                  description: if true, attempts to auto-send; defaults to false (queued for approval)
+      responses:
+        '202':
+          description: queued or accepted
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - BearerAuth: []

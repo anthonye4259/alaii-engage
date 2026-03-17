@@ -1,0 +1,31 @@
+{
+  "id": "alaii-mcp",
+  "display_name": "Alaii MCP - Engagement Connector",
+  "description": "Programmatic engagement agent: comment, reply, like, repost, DM for connected Business/Creator accounts. Safe-by-default with human-in-loop for high-risk actions.",
+  "version": "0.1.0",
+  "capabilities": [
+    "engagement.comment.read",
+    "engagement.comment.reply",
+    "engagement.like",
+    "engagement.repost",
+    "engagement.dm.send",
+    "engagement.webhook.events"
+  ],
+  "supported_networks": ["facebook", "instagram", "linkedin", "tiktok", "x"],
+  "auth_methods": ["oauth2"],
+  "endpoints": {
+    "connect": "https://mcp.alaii.app/connect",
+    "api_base": "https://api.mcp.alaii.app/v1",
+    "webhook_info": "https://api.mcp.alaii.app/v1/webhooks"
+  },
+  "policies": {
+    "requires_business_account": true,
+    "default_rate_limit_per_account_per_minute": 30,
+    "human_in_loop_for_dms": true
+  },
+  "contact": {
+    "team": "Alaii Growth",
+    "email": "engage@alaii.app",
+    "docs": "https://docs.alaii.app/mcp/engagement"
+  }
+}
