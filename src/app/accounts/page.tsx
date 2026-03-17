@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { InstagramIcon, TikTokIcon, LinkedInIcon, FacebookIcon, XIcon, RedditIcon } from "@/components/SocialIcons";
 
@@ -24,6 +24,14 @@ const initialAccounts: Account[] = [
 ];
 
 export default function AccountsPage() {
+  return (
+    <Suspense fallback={<div className="max-w-3xl mx-auto p-8 text-text-muted">Loading accounts...</div>}>
+      <AccountsContent />
+    </Suspense>
+  );
+}
+
+function AccountsContent() {
   const [accounts, setAccounts] = useState(initialAccounts);
   const searchParams = useSearchParams();
 
