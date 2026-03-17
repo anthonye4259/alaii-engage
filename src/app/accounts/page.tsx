@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { InstagramIcon, TikTokIcon, LinkedInIcon, FacebookIcon, XIcon, RedditIcon } from "@/components/SocialIcons";
 
 interface Account {
@@ -10,33 +11,54 @@ interface Account {
   connected: boolean;
   handle: string;
   followers: string;
+  authUrl: string;
 }
 
 const initialAccounts: Account[] = [
-  { id: "instagram", name: "Instagram", IconComponent: InstagramIcon, connected: false, handle: "", followers: "" },
-  { id: "tiktok", name: "TikTok", IconComponent: TikTokIcon, connected: false, handle: "", followers: "" },
-  { id: "linkedin", name: "LinkedIn", IconComponent: LinkedInIcon, connected: false, handle: "", followers: "" },
-  { id: "facebook", name: "Facebook", IconComponent: FacebookIcon, connected: false, handle: "", followers: "" },
-  { id: "x", name: "X (Twitter)", IconComponent: XIcon, connected: false, handle: "", followers: "" },
-  { id: "reddit", name: "Reddit", IconComponent: RedditIcon, connected: false, handle: "", followers: "" },
+  { id: "instagram", name: "Instagram", IconComponent: InstagramIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/instagram" },
+  { id: "tiktok", name: "TikTok", IconComponent: TikTokIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/tiktok" },
+  { id: "linkedin", name: "LinkedIn", IconComponent: LinkedInIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/linkedin" },
+  { id: "facebook", name: "Facebook", IconComponent: FacebookIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/facebook" },
+  { id: "x", name: "X (Twitter)", IconComponent: XIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/x" },
+  { id: "reddit", name: "Reddit", IconComponent: RedditIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/reddit" },
 ];
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState(initialAccounts);
+  const searchParams = useSearchParams();
 
-  const handleConnect = (id: string) => {
-    setAccounts(accounts.map(a =>
-      a.id === id ? { ...a, connected: true, handle: "@mikesbarber", followers: "1.2k" } : a
-    ));
+  // Handle OAuth callback success/error
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+
+    if (connected) {
+      setAccounts((prev) =>
+        prev.map((a) =>
+          a.id === connected
+            ? { ...a, connected: true, handle: `@${connected}_user`, followers: "—" }
+            : a
+        )
+      );
+    }
+
+    if (error) {
+      console.error("OAuth error:", error);
+    }
+  }, [searchParams]);
+
+  const handleConnect = (account: Account) => {
+    // Redirect to OAuth flow
+    window.location.href = account.authUrl;
   };
 
   const handleDisconnect = (id: string) => {
-    setAccounts(accounts.map(a =>
+    setAccounts(accounts.map((a) =>
       a.id === id ? { ...a, connected: false, handle: "", followers: "" } : a
     ));
   };
 
-  const connectedCount = accounts.filter(a => a.connected).length;
+  const connectedCount = accounts.filter((a) => a.connected).length;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
@@ -83,7 +105,7 @@ export default function AccountsPage() {
               </div>
             ) : (
               <button
-                onClick={() => handleConnect(account.id)}
+                onClick={() => handleConnect(account)}
                 className="w-full p-5 flex items-center gap-4 hover:bg-surface-hover transition-all duration-200 cursor-pointer text-left"
               >
                 <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center">
@@ -91,7 +113,7 @@ export default function AccountsPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-text-primary font-semibold text-sm">Sign in with {account.name}</h3>
-                  <p className="text-text-muted text-xs mt-0.5">Click to connect your account</p>
+                  <p className="text-text-muted text-xs mt-0.5">Connect via official OAuth</p>
                 </div>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
