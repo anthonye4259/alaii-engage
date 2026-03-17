@@ -1,36 +1,52 @@
 @import "tailwindcss";
 
 @theme {
-  /* Alaii Design System — matched from dal-ai-web */
+  /* ============================================
+   * ALAII UNIFIED THEME
+   * Exact brand colors from alaii-theme.ts
+   * Primary: #4A9FD4 | Accent: #5AC8FA
+   * ============================================ */
+
+  /* Core Brand */
+  --color-primary: #4A9FD4;
+  --color-primary-dark: #3A8BC8;
+  --color-primary-light: #7DBDE8;
+  --color-primary-faint: rgba(74, 159, 212, 0.06);
+  --color-accent: #5AC8FA;
+  --color-accent-light: rgba(90, 200, 250, 0.08);
+
+  /* Backgrounds */
   --color-background: #FFFFFF;
   --color-foreground: #0F172A;
-  --color-surface: #F7F9FC;
-  --color-surface-hover: #EEF2F7;
+  --color-surface: #F8FAFC;
+  --color-surface-hover: #F1F5F9;
   --color-elevated: #FFFFFF;
 
-  --color-primary: #66A3D1;
-  --color-primary-hover: #5A93C4;
-  --color-accent: #6366F1;
-  --color-accent-hover: #4F46E5;
-  --color-success: #22C55E;
+  /* Semantic */
+  --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
 
-  --color-text-primary: #0F172A;
+  /* Text — Alaii Gray Scale */
+  --color-text-primary: #1E293B;
   --color-text-secondary: #64748B;
   --color-text-muted: #94A3B8;
   --color-text-tertiary: #CBD5E1;
 
+  /* Borders */
   --color-border: #E2E8F0;
   --color-border-hover: #CBD5E1;
   --color-border-highlight: rgba(74, 159, 212, 0.3);
 
+  /* Cards */
   --color-card: #FFFFFF;
-  --color-card-hover: #F7F9FC;
+  --color-card-hover: #F8FAFC;
 
-  --color-sidebar-bg: #F7F9FC;
-  --color-sidebar-active: rgba(99, 102, 241, 0.08);
+  /* Sidebar */
+  --color-sidebar-bg: #F8FAFC;
+  --color-sidebar-active: rgba(74, 159, 212, 0.1);
 
+  /* Social Platform Colors */
   --color-instagram: #E1306C;
   --color-tiktok: #000000;
   --color-linkedin: #0A66C2;
@@ -86,12 +102,12 @@
   outline-offset: 2px;
 }
 
-/* Gradient utilities — from Alaii */
+/* Gradient — Alaii brand primary to darker */
 .gradient-primary {
-  background: linear-gradient(135deg, #4A9FD4 0%, #6366F1 100%);
+  background: linear-gradient(135deg, #4A9FD4 0%, #3A8BC8 100%);
 }
 .gradient-accent {
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  background: linear-gradient(135deg, #4A9FD4 0%, #5AC8FA 100%);
 }
 
 /* Card hover */
@@ -102,7 +118,7 @@
   background: var(--color-surface-hover);
   border-color: var(--color-border-highlight);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(74, 159, 212, 0.08);
 }
 
 /* Glass effect */
@@ -123,8 +139,8 @@
   transition: background 0.2s ease;
 }
 .toggle-switch.active {
-  background: var(--color-accent);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
+  background: var(--color-primary);
+  box-shadow: 0 0 12px rgba(74, 159, 212, 0.3);
 }
 .toggle-switch::after {
   content: '';

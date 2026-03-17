@@ -102,7 +102,7 @@ export default function PricingPage() {
             <ul className="space-y-3 flex-1 mb-8">
               {plan.features.map((feature) => (
                 <li key={feature} className="flex items-center gap-3 text-sm text-text-secondary">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A9FD4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                   {feature}

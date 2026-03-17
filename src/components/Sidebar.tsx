@@ -41,7 +41,7 @@ export default function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? "bg-sidebar-active text-accent"
+                  ? "bg-sidebar-active text-primary"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
               }`}
             >
@@ -57,11 +57,11 @@ export default function Sidebar() {
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-text-secondary">Current Plan</span>
-            <span className="text-xs font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">PRO</span>
+            <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">PRO</span>
           </div>
           <p className="text-text-muted text-xs">$40/mo · 4 platforms</p>
           <div className="mt-3 w-full bg-border rounded-full h-1.5">
-            <div className="bg-accent h-1.5 rounded-full" style={{ width: "62%" }} />
+            <div className="bg-primary h-1.5 rounded-full" style={{ width: "62%" }} />
           </div>
           <p className="text-text-muted text-xs mt-1">156 / 250 engagements</p>
         </div>
@@ -70,7 +70,7 @@ export default function Sidebar() {
   );
 }
 
-const ACTIVE_COLOR = "#6366F1";
+const ACTIVE_COLOR = "#4A9FD4";
 const INACTIVE_COLOR = "#64748B";
 
 function HomeIcon({ active }: { active: boolean }) {
