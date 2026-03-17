@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Alaii MCP Demo</title></head>
+<body>
+  <h1>Alaii MCP Demo</h1>
+  <div id="comments"></div>
+  <script>
+    async function load(){
+      const res = await fetch('/accounts/demo-fb/comments');
+      const list = await res.json();
+      const container = document.getElementById('comments');
+      container.innerHTML = '';
+      list.forEach(c=>{
+        const el = document.createElement('div');
+        el.innerHTML = `<b>${c.author}</b>: ${c.text} <button data-id="${c.id}">Reply</button>`;
+        el.querySelector('button').onclick = async ()=>{
+          const body = prompt('Reply text');
+          if(!body) return;
+          await fetch('/accounts/demo-fb/comments', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({commentId:c.id, body})});
+          alert('Reply queued');
+          load();
+        };
+        container.appendChild(el);
+      });
+    }
+    load();
+  </script>
+</body>
+</html>
