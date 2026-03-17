@@ -39,10 +39,10 @@ export default function HomePage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-5 gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-bg-card border border-border rounded-2xl p-5 hover:border-border-hover transition-colors">
+          <div key={stat.label} className="bg-card border border-border rounded-2xl p-5 hover:border-border-hover transition-colors">
             <p className="text-text-secondary text-xs font-medium mb-1">{stat.label}</p>
             <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
-            <span className={`text-xs font-medium ${stat.up ? "text-success" : "text-danger"}`}>
+            <span className={`text-xs font-medium ${stat.up ? "text-success" : "text-error"}`}>
               {stat.change} this week
             </span>
           </div>
@@ -51,7 +51,7 @@ export default function HomePage() {
 
       <div className="grid grid-cols-3 gap-6">
         {/* Activity Feed */}
-        <div className="col-span-2 bg-bg-card border border-border rounded-2xl p-6">
+        <div className="col-span-2 bg-card border border-border rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-text-primary">Recent Activity</h2>
             <span className="text-xs text-accent font-medium cursor-pointer hover:text-accent-hover">View all →</span>
@@ -81,7 +81,7 @@ export default function HomePage() {
         </div>
 
         {/* Active Rules */}
-        <div className="bg-bg-card border border-border rounded-2xl p-6">
+        <div className="bg-card border border-border rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-text-primary">Active Rules</h2>
             <span className="text-xs text-accent font-medium cursor-pointer hover:text-accent-hover">Manage →</span>

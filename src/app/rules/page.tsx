@@ -99,7 +99,7 @@ export default function RulesPage() {
         {rules.map((rule) => (
           <div
             key={rule.id}
-            className={`bg-bg-card border rounded-2xl p-6 transition-all duration-200 ${
+            className={`bg-card border rounded-2xl p-6 transition-all duration-200 ${
               rule.enabled ? "border-accent/30" : "border-border hover:border-border-hover"
             }`}
           >
@@ -107,7 +107,7 @@ export default function RulesPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-3">
                   <h3 className="text-text-primary font-semibold">{rule.name}</h3>
-                  <span className="text-xs font-medium text-text-muted bg-bg-secondary px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-medium text-text-muted bg-surface px-2 py-0.5 rounded-full">
                     {rule.category}
                   </span>
                 </div>

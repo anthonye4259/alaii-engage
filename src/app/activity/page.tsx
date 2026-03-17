@@ -53,7 +53,7 @@ export default function ActivityPage() {
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
               activeFilter === filter
                 ? "bg-accent text-white"
-                : "bg-bg-card border border-border text-text-secondary hover:text-text-primary hover:border-border-hover"
+                : "bg-card border border-border text-text-secondary hover:text-text-primary hover:border-border-hover"
             }`}
           >
             {filter}
@@ -62,9 +62,9 @@ export default function ActivityPage() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-bg-card border border-border rounded-2xl divide-y divide-border">
+      <div className="bg-card border border-border rounded-2xl divide-y divide-border">
         {filtered.map((item) => (
-          <div key={item.id} className="p-5 hover:bg-bg-card-hover transition-colors">
+          <div key={item.id} className="p-5 hover:bg-surface-hover transition-colors">
             <div className="flex items-start gap-4">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"

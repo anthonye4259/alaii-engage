@@ -93,7 +93,7 @@ export default function PricingPage() {
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className={`bg-bg-card border rounded-2xl p-7 flex flex-col relative ${
+            className={`bg-card border rounded-2xl p-7 flex flex-col relative ${
               plan.popular
                 ? "border-accent shadow-[0_0_30px_rgba(124,92,252,0.15)]"
                 : "border-border hover:border-border-hover"

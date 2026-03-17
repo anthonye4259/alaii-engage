@@ -20,7 +20,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Account */}
-      <div className="bg-bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-lg font-semibold text-text-primary mb-4">Account</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between py-3 border-b border-border">
@@ -48,7 +48,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Preferences */}
-      <div className="bg-bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h2 className="text-lg font-semibold text-text-primary mb-4">Preferences</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between py-3 border-b border-border">
@@ -63,7 +63,7 @@ export default function SettingsPage() {
               <p className="text-sm font-medium text-text-primary">AI tone</p>
               <p className="text-xs text-text-muted">How your AI writes comments and replies</p>
             </div>
-            <select className="bg-bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
+            <select className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
               <option>Casual & Friendly</option>
               <option>Professional</option>
               <option>Enthusiastic</option>
@@ -75,7 +75,7 @@ export default function SettingsPage() {
               <p className="text-sm font-medium text-text-primary">Engagement speed</p>
               <p className="text-xs text-text-muted">How quickly the AI engages (slower = more natural)</p>
             </div>
-            <select className="bg-bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
+            <select className="bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-accent">
               <option>Natural (recommended)</option>
               <option>Moderate</option>
               <option>Fast</option>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Developer Mode */}
-      <div className="bg-bg-card border border-border rounded-2xl p-6">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-text-primary">Developer Mode</h2>
           <button
@@ -101,7 +101,7 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium text-text-primary mb-2">API Key</p>
               <div className="flex gap-2">
-                <div className="flex-1 bg-bg-secondary border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-text-secondary">
+                <div className="flex-1 bg-surface border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-text-secondary">
                   {showApiKey ? apiKey : "ae_sk_live_••••••••••••••••"}
                 </div>
                 <button
@@ -122,7 +122,7 @@ export default function SettingsPage() {
             {/* MCP Config */}
             <div>
               <p className="text-sm font-medium text-text-primary mb-2">MCP Server URL</p>
-              <div className="bg-bg-secondary border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-text-secondary">
+              <div className="bg-surface border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-text-secondary">
                 https://engage.alaii.app/mcp
               </div>
             </div>
@@ -130,7 +130,7 @@ export default function SettingsPage() {
             {/* Quick Start */}
             <div>
               <p className="text-sm font-medium text-text-primary mb-2">Quick start (add to your agent config)</p>
-              <pre className="bg-bg-primary border border-border rounded-xl p-4 text-xs text-text-secondary overflow-x-auto font-mono">
+              <pre className="bg-background border border-border rounded-xl p-4 text-xs text-text-secondary overflow-x-auto font-mono">
 {`{
   "mcpServers": {
     "alaii-engage": {
@@ -148,14 +148,14 @@ export default function SettingsPage() {
       </div>
 
       {/* Danger Zone */}
-      <div className="bg-bg-card border border-danger/20 rounded-2xl p-6">
-        <h2 className="text-lg font-semibold text-danger mb-2">Danger Zone</h2>
+      <div className="bg-card border border-error/20 rounded-2xl p-6">
+        <h2 className="text-lg font-semibold text-error mb-2">Danger Zone</h2>
         <p className="text-text-muted text-xs mb-4">These actions are irreversible</p>
         <div className="flex gap-3">
-          <button className="px-4 py-2 border border-danger/30 text-danger rounded-xl text-sm font-medium hover:bg-danger/10 transition-colors">
+          <button className="px-4 py-2 border border-error/30 text-error rounded-xl text-sm font-medium hover:bg-error/10 transition-colors">
             Disconnect all accounts
           </button>
-          <button className="px-4 py-2 border border-danger/30 text-danger rounded-xl text-sm font-medium hover:bg-danger/10 transition-colors">
+          <button className="px-4 py-2 border border-error/30 text-error rounded-xl text-sm font-medium hover:bg-error/10 transition-colors">
             Delete account
           </button>
         </div>

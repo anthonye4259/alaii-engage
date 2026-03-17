@@ -1,26 +1,44 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0f0f14;
-  --color-bg-secondary: #1a1a24;
-  --color-bg-card: #1e1e2e;
-  --color-bg-card-hover: #252538;
-  --color-border: #2a2a3d;
-  --color-border-hover: #3a3a55;
-  --color-text-primary: #f0f0f5;
-  --color-text-secondary: #8888a0;
-  --color-text-muted: #55556a;
-  --color-accent: #7c5cfc;
-  --color-accent-hover: #9070ff;
-  --color-accent-glow: rgba(124, 92, 252, 0.25);
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-  --color-instagram: #e1306c;
-  --color-tiktok: #00f2ea;
-  --color-linkedin: #0a66c2;
-  --color-facebook: #1877f2;
-  --font-sans: "Inter", "SF Pro Display", system-ui, sans-serif;
+  /* Alaii Design System — matched from dal-ai-web */
+  --color-background: #FFFFFF;
+  --color-foreground: #0F172A;
+  --color-surface: #F7F9FC;
+  --color-surface-hover: #EEF2F7;
+  --color-elevated: #FFFFFF;
+
+  --color-primary: #66A3D1;
+  --color-primary-hover: #5A93C4;
+  --color-accent: #6366F1;
+  --color-accent-hover: #4F46E5;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+  --color-text-tertiary: #CBD5E1;
+
+  --color-border: #E2E8F0;
+  --color-border-hover: #CBD5E1;
+  --color-border-highlight: rgba(74, 159, 212, 0.3);
+
+  --color-card: #FFFFFF;
+  --color-card-hover: #F7F9FC;
+
+  --color-sidebar-bg: #F7F9FC;
+  --color-sidebar-active: rgba(99, 102, 241, 0.08);
+
+  --color-instagram: #E1306C;
+  --color-tiktok: #000000;
+  --color-linkedin: #0A66C2;
+  --color-facebook: #1877F2;
+  --color-x: #000000;
+  --color-reddit: #FF4500;
+
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
 @layer base {
@@ -35,27 +53,63 @@
   }
 
   body {
-    background-color: var(--color-bg-primary);
-    color: var(--color-text-primary);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Scrollbar */
+::selection {
+  background: var(--color-primary);
+  color: white;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-primary);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-hover);
+  background: var(--color-text-muted);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Gradient utilities — from Alaii */
+.gradient-primary {
+  background: linear-gradient(135deg, #4A9FD4 0%, #6366F1 100%);
+}
+.gradient-accent {
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+}
+
+/* Card hover */
+.card-hover {
+  transition: all 0.2s ease;
+}
+.card-hover:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-highlight);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
 }
 
 /* Toggle Switch */
@@ -70,7 +124,7 @@
 }
 .toggle-switch.active {
   background: var(--color-accent);
-  box-shadow: 0 0 12px var(--color-accent-glow);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.25);
 }
 .toggle-switch::after {
   content: '';
@@ -82,7 +136,24 @@
   border-radius: 50%;
   background: white;
   transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .toggle-switch.active::after {
   transform: translateX(20px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+.animate-slide-up {
+  animation: slideUp 0.6s ease-out;
 }
