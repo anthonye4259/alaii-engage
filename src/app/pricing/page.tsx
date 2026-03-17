@@ -4,22 +4,6 @@ import { useState } from "react";
 
 const plans = [
   {
-    id: "starter",
-    name: "Starter",
-    price: "Free",
-    period: "",
-    description: "Try it out with basic engagement",
-    features: [
-      "1 social account",
-      "50 engagements/month",
-      "Auto-reply to comments",
-      "Activity dashboard",
-    ],
-    cta: "Get Started",
-    popular: false,
-    priceId: null,
-  },
-  {
     id: "pro",
     name: "Pro",
     price: "$40",
@@ -30,11 +14,12 @@ const plans = [
       "500 engagements/month",
       "All automation rules",
       "Comment, like, reply, DM, repost",
+      "AI chat — teach your agent your brand",
       "AI-powered personalization",
       "Activity analytics",
       "Priority support",
     ],
-    cta: "Start Pro",
+    cta: "Start Pro — 7 days free",
     popular: true,
     priceId: "price_pro_monthly",
   },
@@ -53,7 +38,7 @@ const plans = [
       "Multi-brand management",
       "Dedicated support",
     ],
-    cta: "Start Agency",
+    cta: "Start Agency — 7 days free",
     popular: false,
     priceId: "price_agency_monthly",
   },
@@ -63,7 +48,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null);
 
   const handleSubscribe = async (priceId: string | null, planId: string) => {
-    if (!priceId) return; // Free plan
+    if (!priceId) return;
     setLoading(planId);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -83,20 +68,20 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
       <div className="text-center">
         <h1 className="text-3xl font-bold text-text-primary">Simple Pricing</h1>
         <p className="text-text-secondary text-sm mt-2">Automate your social engagement. Cancel anytime.</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-2 gap-6">
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className={`bg-card border rounded-2xl p-7 flex flex-col relative ${
+            className={`bg-card border rounded-2xl p-8 flex flex-col relative ${
               plan.popular
-                ? "border-accent shadow-[0_0_30px_rgba(124,92,252,0.15)]"
-                : "border-border hover:border-border-hover"
+                ? "border-accent shadow-[0_0_30px_rgba(99,102,241,0.12)]"
+                : "border-border card-hover"
             } transition-all duration-200`}
           >
             {plan.popular && (
@@ -106,18 +91,18 @@ export default function PricingPage() {
             )}
 
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-text-primary">{plan.name}</h3>
-              <p className="text-text-muted text-xs mt-1">{plan.description}</p>
+              <h3 className="text-xl font-semibold text-text-primary">{plan.name}</h3>
+              <p className="text-text-muted text-sm mt-1">{plan.description}</p>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-text-primary">{plan.price}</span>
-                {plan.period && <span className="text-text-muted text-sm">{plan.period}</span>}
+                <span className="text-5xl font-bold text-text-primary">{plan.price}</span>
+                <span className="text-text-muted text-sm">{plan.period}</span>
               </div>
             </div>
 
-            <ul className="space-y-3 flex-1 mb-6">
+            <ul className="space-y-3 flex-1 mb-8">
               {plan.features.map((feature) => (
-                <li key={feature} className="flex items-center gap-2 text-sm text-text-secondary">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c5cfc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <li key={feature} className="flex items-center gap-3 text-sm text-text-secondary">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                   {feature}
@@ -128,9 +113,9 @@ export default function PricingPage() {
             <button
               onClick={() => handleSubscribe(plan.priceId, plan.id)}
               disabled={loading === plan.id}
-              className={`w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              className={`w-full py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                 plan.popular
-                  ? "bg-accent hover:bg-accent-hover text-white shadow-[0_4px_20px_rgba(124,92,252,0.3)]"
+                  ? "gradient-primary text-white shadow-[0_4px_20px_rgba(99,102,241,0.25)]"
                   : "border border-border text-text-primary hover:border-accent hover:text-accent"
               } ${loading === plan.id ? "opacity-50 cursor-wait" : ""}`}
             >
@@ -141,7 +126,7 @@ export default function PricingPage() {
       </div>
 
       <p className="text-center text-text-muted text-xs">
-        All plans include a 7-day free trial. No credit card needed to start.
+        All plans include a 7-day free trial. Cancel anytime — no questions asked.
       </p>
     </div>
   );
