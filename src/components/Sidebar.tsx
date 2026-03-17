@@ -18,15 +18,11 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar-bg border-r border-border flex flex-col z-50">
-      {/* Logo — Alaii wordmark */}
+      {/* Logo */}
       <div className="p-6 border-b border-border">
         <div>
-          <h1 className="text-2xl font-light tracking-tight leading-tight">
-            <span style={{ color: '#1E293B' }}>al</span>
-            <span style={{ color: '#4A9FD4' }}>aii</span>
-            <span className="text-text-muted text-sm font-normal ml-2">engage</span>
-          </h1>
-          <p className="text-text-muted text-xs mt-1">Social Engagement AI</p>
+          <img src="/logo.png" alt="Alaii" className="h-8 w-auto" />
+          <p className="text-text-muted text-xs mt-2">Social Engagement AI</p>
         </div>
       </div>
 
