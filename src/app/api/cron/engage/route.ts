@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { runEngagementCycle, type AgentConfig } from "@/lib/agent";
 import { DEFAULT_BUSINESS_CONTEXT } from "@/lib/ai-generator";
 
-/**
- * Cron endpoint — triggers one engagement cycle
- * 
- * Set up in Vercel as a cron job running every 10-15 minutes:
- * vercel.json → { "crons": [{ "path": "/api/cron/engage", "schedule": "*/10 * * * *" }] }
- * 
- * Or call manually: POST /api/cron/engage
- */
+// Cron endpoint - triggers one engagement cycle
+// Set up via vercel.json cron schedule (every 10 min)
+// Or call manually: POST /api/cron/engage
 export async function POST(req: NextRequest) {
   // Verify cron secret (prevent unauthorized triggers)
   const authHeader = req.headers.get("authorization");
