@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
         code,
         grant_type: "authorization_code",
         redirect_uri: `${appUrl}/api/auth/tiktok/callback`,
+        code_verifier: process.env.TIKTOK_PKCE_VERIFIER || "alaii_engage_tiktok_pkce_verifier",
       }),
     });
     const tokenData = await tokenRes.json();

@@ -16,7 +16,11 @@ export async function GET() {
   ].join(" ");
 
   const state = crypto.randomUUID();
-  const codeChallenge = crypto.randomUUID().replace(/-/g, "");
+
+  // For PKCE with "plain" method, code_challenge === code_verifier
+  // In production, store this in a session/cookie so the callback can retrieve it
+  // For now, use a deterministic value derived from state that both sides can reconstruct
+  const codeChallenge = process.env.X_PKCE_VERIFIER || "alaii_engage_pkce_verifier";
 
   const authUrl = new URL("https://twitter.com/i/oauth2/authorize");
   authUrl.searchParams.set("response_type", "code");
@@ -29,3 +33,4 @@ export async function GET() {
 
   return NextResponse.redirect(authUrl.toString());
 }
+

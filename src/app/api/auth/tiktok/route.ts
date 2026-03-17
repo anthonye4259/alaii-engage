@@ -13,7 +13,10 @@ export async function GET() {
   ].join(",");
 
   const state = crypto.randomUUID();
-  const codeVerifier = crypto.randomUUID() + crypto.randomUUID();
+
+  // PKCE: use plain method so both auth and callback can use the same verifier
+  // In production, store in session/cookie for proper S256 flow
+  const codeChallenge = process.env.TIKTOK_PKCE_VERIFIER || "alaii_engage_tiktok_pkce_verifier";
 
   const authUrl = new URL("https://www.tiktok.com/v2/auth/authorize/");
   authUrl.searchParams.set("client_key", clientKey!);
@@ -21,8 +24,9 @@ export async function GET() {
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("state", state);
-  authUrl.searchParams.set("code_challenge", codeVerifier);
-  authUrl.searchParams.set("code_challenge_method", "S256");
+  authUrl.searchParams.set("code_challenge", codeChallenge);
+  authUrl.searchParams.set("code_challenge_method", "plain");
 
   return NextResponse.redirect(authUrl.toString());
 }
+

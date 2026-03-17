@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         code,
         grant_type: "authorization_code",
         redirect_uri: `${appUrl}/api/auth/x/callback`,
-        code_verifier: "challenge", // Match the code_challenge from auth step
+        code_verifier: process.env.X_PKCE_VERIFIER || "alaii_engage_pkce_verifier",
       }),
     });
     const tokenData = await tokenRes.json();
