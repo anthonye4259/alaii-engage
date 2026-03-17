@@ -1,13 +1,20 @@
 /**
- * Engagement Engine — Orchestrates safe engagement actions
- * 
- * Ties together rate limiting, content safety, and account health
- * to execute engagement actions safely.
+ * Engagement Engine — Executes real platform actions with safety checks
+ *
+ * After passing rate limits, content safety, and account health checks,
+ * calls actual platform APIs to perform engagement.
  */
 
 import { canPerformAction, recordAction, getHumanDelay, type ActionType } from "./rate-limiter";
 import { screenContent, getContentRiskLevel } from "./content-safety";
 import { isAccountSafe, reportIncident } from "./account-health";
+
+// Platform API imports
+import * as instagramApi from "./platforms/instagram";
+import * as tiktokApi from "./platforms/tiktok";
+import * as facebookApi from "./platforms/facebook";
+import * as xApi from "./platforms/x";
+import * as redditApi from "./platforms/reddit";
 
 export type Platform = "instagram" | "tiktok" | "linkedin" | "facebook" | "x" | "reddit";
 
@@ -15,21 +22,23 @@ interface EngageRequest {
   accountId: string;
   platform: Platform;
   action: ActionType;
-  targetId: string;       // Post/comment/user ID on the platform
-  content?: string;       // Text content (for comments, replies, DMs)
+  targetId: string;
+  parentId?: string;
+  content?: string;
+  accessToken: string;
   metadata?: Record<string, string>;
 }
 
 interface EngageResult {
   success: boolean;
-  status: "executed" | "queued" | "blocked" | "rate_limited" | "unsafe_content" | "account_paused";
+  status: "executed" | "queued" | "blocked" | "rate_limited" | "unsafe_content" | "account_paused" | "api_error";
   message: string;
-  scheduledAt?: Date;     // When the action will actually execute
+  platformResponse?: unknown;
   approvalRequired?: boolean;
 }
 
 /**
- * Execute an engagement action with full safety checks
+ * Execute an engagement action with full safety checks, then call real API
  */
 export async function engage(request: EngageRequest): Promise<EngageResult> {
   const { accountId, platform, action, content } = request;
@@ -37,91 +46,202 @@ export async function engage(request: EngageRequest): Promise<EngageResult> {
   // 1. Check account health
   const healthCheck = isAccountSafe(accountId, platform);
   if (!healthCheck.safe) {
-    return {
-      success: false,
-      status: "account_paused",
-      message: healthCheck.reason || "Account is paused for safety",
-    };
+    return { success: false, status: "account_paused", message: healthCheck.reason || "Account paused" };
   }
 
   // 2. Check rate limits
   const rateCheck = canPerformAction(accountId, action);
   if (!rateCheck.allowed) {
-    return {
-      success: false,
-      status: "rate_limited",
-      message: rateCheck.reason || "Rate limit reached",
-    };
+    return { success: false, status: "rate_limited", message: rateCheck.reason || "Rate limit reached" };
   }
 
-  // 3. Screen content (if applicable)
+  // 3. Screen content
   if (content) {
     const safetyCheck = screenContent(content);
     const riskLevel = getContentRiskLevel(safetyCheck.score);
-
     if (riskLevel === "blocked") {
-      return {
-        success: false,
-        status: "unsafe_content",
-        message: `Content blocked: ${safetyCheck.flags.join(", ")}`,
-      };
+      return { success: false, status: "unsafe_content", message: `Content blocked: ${safetyCheck.flags.join(", ")}` };
     }
-
     if (riskLevel === "review") {
-      // Queue for human review
-      return {
-        success: false,
-        status: "queued",
-        message: `Content needs review: ${safetyCheck.flags.join(", ")}`,
-        approvalRequired: true,
-      };
+      return { success: false, status: "queued", message: `Needs review: ${safetyCheck.flags.join(", ")}`, approvalRequired: true };
     }
   }
 
   // 4. Check if action requires approval
   const { RATE_LIMITS } = await import("./rate-limiter");
   if (RATE_LIMITS[action].requiresApproval) {
-    return {
-      success: false,
-      status: "queued",
-      message: `${RATE_LIMITS[action].description} requires approval before sending`,
-      approvalRequired: true,
-    };
+    return { success: false, status: "queued", message: `${action} requires approval`, approvalRequired: true };
   }
 
-  // 5. Calculate human-like delay
+  // 5. Human-like delay
   const delay = getHumanDelay(action);
-  const scheduledAt = new Date(Date.now() + delay);
+  await sleep(delay);
 
-  // 6. Record the action
-  recordAction(accountId, action);
-
-  // 7. Execute (in production, this schedules the actual API call)
-  // For now, return success with the scheduled time
-  return {
-    success: true,
-    status: "executed",
-    message: `Action scheduled with ${Math.round(delay / 1000)}s human-like delay`,
-    scheduledAt,
-  };
+  // 6. Execute the actual platform API call
+  try {
+    const apiResult = await executePlatformAction(request);
+    recordAction(accountId, action);
+    return { success: true, status: "executed", message: `${action} executed on ${platform}`, platformResponse: apiResult };
+  } catch (err) {
+    const statusCode = (err as { status?: number }).status || 500;
+    handlePlatformResponse(accountId, platform, statusCode);
+    return { success: false, status: "api_error", message: `API error: ${err}` };
+  }
 }
 
 /**
- * Process API response and report any issues
+ * Route to the correct platform API
  */
-export function handlePlatformResponse(
-  accountId: string,
-  platform: Platform,
-  statusCode: number,
-  responseBody?: unknown
-): void {
+export async function executePlatformAction(request: EngageRequest): Promise<unknown> {
+  const { platform, action, targetId, parentId, content, accessToken, metadata } = request;
+
+  switch (platform) {
+    // -----------------------------------------------------------------------
+    // INSTAGRAM
+    // -----------------------------------------------------------------------
+    case "instagram": {
+      const opts = { accessToken, igUserId: metadata?.igUserId || "" };
+      switch (action) {
+        case "reply_own_comment":
+          return instagramApi.replyToComment(targetId, content || "", opts);
+        case "comment_hashtag":
+          // For hashtag posts, we comment on the media (targetId = media ID)
+          return instagramApi.commentOnMedia(targetId, content || "", opts);
+        case "like_mention":
+        case "like_comment":
+          // IG doesn't support liking via API — needs headless fallback
+          console.log("[engage] IG like not available via API");
+          return { skipped: true, reason: "like_not_in_api" };
+        case "dm_new_follower":
+          return instagramApi.sendDM(targetId, content || "", opts);
+        default:
+          return { skipped: true, reason: "unsupported_action" };
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // TIKTOK
+    // -----------------------------------------------------------------------
+    case "tiktok": {
+      const opts = { accessToken, openId: metadata?.openId || "" };
+      switch (action) {
+        case "reply_own_comment":
+          // TikTok: replyToComment(videoId, commentId, text, opts)
+          return tiktokApi.replyToComment(parentId || "", targetId, content || "", opts);
+        case "comment_hashtag":
+          // For hashtag videos, we "reply" to the video (no parent comment)
+          return tiktokApi.replyToComment(targetId, "", content || "", opts);
+        case "like_mention":
+          return tiktokApi.likeVideo(targetId, opts);
+        default:
+          return { skipped: true, reason: "unsupported_action" };
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // FACEBOOK
+    // -----------------------------------------------------------------------
+    case "facebook": {
+      const opts = {
+        pageAccessToken: metadata?.pageToken || accessToken,
+        pageId: metadata?.pageId || "",
+      };
+      switch (action) {
+        case "reply_own_comment":
+          return facebookApi.replyToComment(targetId, content || "", opts);
+        case "like_comment":
+        case "like_mention":
+          return facebookApi.likeComment(targetId, opts);
+        case "comment_hashtag":
+          return facebookApi.replyToComment(targetId, content || "", opts);
+        case "dm_new_follower":
+          return facebookApi.sendMessage(targetId, content || "", opts);
+        default:
+          return { skipped: true, reason: "unsupported_action" };
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // X (TWITTER)
+    // -----------------------------------------------------------------------
+    case "x": {
+      const opts = { accessToken, userId: metadata?.userId || "" };
+      switch (action) {
+        case "reply_own_comment":
+        case "comment_hashtag":
+          return xApi.replyToTweet(targetId, content || "", opts);
+        case "like_mention":
+        case "like_comment":
+          return xApi.likeTweet(targetId, opts);
+        case "repost":
+          return xApi.retweet(targetId, opts);
+        case "dm_new_follower":
+        case "dm_cold_outreach":
+          return xApi.sendDM(targetId, content || "", opts);
+        default:
+          return { skipped: true, reason: "unsupported_action" };
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // REDDIT
+    // -----------------------------------------------------------------------
+    case "reddit": {
+      const opts = { accessToken, username: metadata?.username || "" };
+      switch (action) {
+        case "reply_own_comment":
+        case "comment_hashtag":
+          return redditApi.reply(targetId, content || "", opts);
+        case "like_mention":
+          return redditApi.upvote(targetId, opts);
+        case "dm_new_follower":
+        case "dm_cold_outreach":
+          return redditApi.sendPM(targetId, "Hey!", content || "", opts);
+        default:
+          return { skipped: true, reason: "unsupported_action" };
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // LINKEDIN
+    // -----------------------------------------------------------------------
+    case "linkedin": {
+      const linkedinApi = await import("./linkedin");
+      const opts = { accessToken, personUrn: metadata?.personUrn || "" };
+      switch (action) {
+        case "like_mention":
+        case "like_comment":
+          return linkedinApi.likePost(targetId, opts);
+        case "comment_hashtag":
+        case "reply_own_comment":
+          return linkedinApi.commentOnPost(targetId, content || "", opts);
+        case "repost":
+          return linkedinApi.sharePost(opts.personUrn, content || "", opts);
+        default:
+          return { skipped: true, reason: "unsupported_action" };
+      }
+    }
+
+    default:
+      throw new Error(`Unsupported platform: ${platform}`);
+  }
+}
+
+/**
+ * Report platform API errors to account health
+ */
+export function handlePlatformResponse(accountId: string, platform: Platform, statusCode: number): void {
   if (statusCode === 429) {
     reportIncident(accountId, platform, "rate_limit_hit", "Platform rate limit hit");
   } else if (statusCode === 403) {
     reportIncident(accountId, platform, "action_blocked", "Action blocked by platform");
   } else if (statusCode === 401) {
-    reportIncident(accountId, platform, "api_error", "Authentication failed — token may be expired");
+    reportIncident(accountId, platform, "api_error", "Auth failed — token may be expired");
   } else if (statusCode >= 500) {
-    reportIncident(accountId, platform, "api_error", `Platform server error: ${statusCode}`);
+    reportIncident(accountId, platform, "api_error", `Server error: ${statusCode}`);
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
