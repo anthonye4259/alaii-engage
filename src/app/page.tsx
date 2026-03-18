@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 
 const stats = [
   { label: "Total Engagements", value: "1,247", change: "+18%", up: true },
@@ -27,7 +27,59 @@ const activeRules = [
   { name: "DM new followers", platform: "Instagram", engagements: 34, status: "paused" },
 ];
 
+function EmptyState() {
+  return (
+    <div className="max-w-2xl mx-auto text-center py-20">
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 mx-auto flex items-center justify-center mb-6">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4A9FD4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      </div>
+      <h2 className="text-2xl font-bold text-text-primary mb-2">Your agent is ready</h2>
+      <p className="text-text-secondary text-sm mb-8 max-w-md mx-auto">
+        Connect a social account and set up engagement rules to start automating. Your AI agent will begin engaging within minutes.
+      </p>
+      <div className="flex items-center justify-center gap-4">
+        <a
+          href="/accounts"
+          className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 hover:shadow-xl transition-all"
+        >
+          Connect your first account →
+        </a>
+        <a
+          href="/chat"
+          className="px-6 py-3 border border-border text-text-secondary rounded-xl text-sm font-medium hover:border-primary hover:text-primary transition-all"
+        >
+          Teach your AI
+        </a>
+      </div>
+
+      {/* Quick tips */}
+      <div className="mt-12 grid grid-cols-3 gap-4 text-left">
+        {[
+          { icon: "🎯", title: "Connect accounts", desc: "Link Instagram, TikTok, X, LinkedIn, Reddit, or Facebook" },
+          { icon: "🤖", title: "Teach your AI", desc: "Tell your agent about your business, tone, and audience" },
+          { icon: "⚡", title: "Set rules", desc: "Choose which actions to automate — comments, likes, DMs" },
+        ].map((tip) => (
+          <div key={tip.title} className="bg-card border border-border rounded-2xl p-5 hover:border-border-hover transition-colors">
+            <span className="text-2xl">{tip.icon}</span>
+            <h3 className="text-sm font-semibold text-text-primary mt-3 mb-1">{tip.title}</h3>
+            <p className="text-xs text-text-muted">{tip.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
+  const { user } = useAuth();
+  const isNewUser = user?.plan === "free"; // Simple heuristic — adjust with real data later
+
+  if (isNewUser) {
+    return <EmptyState />;
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -54,7 +106,7 @@ export default function HomePage() {
         <div className="col-span-2 bg-card border border-border rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-text-primary">Recent Activity</h2>
-            <span className="text-xs text-accent font-medium cursor-pointer hover:text-accent-hover">View all →</span>
+            <a href="/activity" className="text-xs text-accent font-medium hover:text-accent-hover">View all →</a>
           </div>
           <div className="space-y-4">
             {recentActivity.map((item, i) => (
@@ -84,7 +136,7 @@ export default function HomePage() {
         <div className="bg-card border border-border rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-text-primary">Active Rules</h2>
-            <span className="text-xs text-accent font-medium cursor-pointer hover:text-accent-hover">Manage →</span>
+            <a href="/rules" className="text-xs text-accent font-medium hover:text-accent-hover">Manage →</a>
           </div>
           <div className="space-y-4">
             {activeRules.map((rule, i) => (

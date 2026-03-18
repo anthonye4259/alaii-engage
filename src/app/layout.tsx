@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import { AuthProvider } from "@/components/AuthProvider";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Alaii Engage — Social Engagement Automation",
@@ -21,10 +22,11 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 ml-64 p-8">
-          {children}
-        </main>
+        <AuthProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+        </AuthProvider>
       </body>
     </html>
   );
