@@ -30,6 +30,7 @@ interface GenerateRequest {
     contentType?: "photo" | "video" | "carousel" | "text" | "reel" | "story";
     sentimentGuidance?: string;
     conversationMemory?: string;
+    performanceLearning?: string;
   };
   businessContext: BusinessContext;
 }
@@ -272,6 +273,11 @@ function buildUserPrompt(
   // Conversation memory
   if (context.conversationMemory) {
     prompt += `\n${context.conversationMemory}\n`;
+  }
+
+  // Performance learning — data-driven insights from tracked outcomes
+  if (context.performanceLearning) {
+    prompt += `\n${context.performanceLearning}\n`;
   }
 
   prompt += "\n---\n\n";

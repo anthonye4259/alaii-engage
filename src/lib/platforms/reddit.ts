@@ -142,3 +142,28 @@ export async function getInbox(options: RedditOptions, limit = 25) {
   );
   return res.json();
 }
+
+/**
+ * Get info about a specific comment (score, replies)
+ */
+export async function getCommentInfo(commentId: string, options: RedditOptions) {
+  try {
+    const res = await fetch(
+      `${REDDIT_API}/api/info?id=${commentId}`, {
+        headers: headers(options.accessToken),
+      }
+    );
+    const data = await res.json();
+    const comment = data?.data?.children?.[0]?.data;
+    if (!comment) return null;
+    return {
+      score: comment.score || 0,
+      replies: typeof comment.replies === "object" ? (comment.replies?.data?.children?.length || 0) : 0,
+      ups: comment.ups || 0,
+      downs: comment.downs || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+

@@ -106,3 +106,18 @@ export async function sendDM(recipientId: string, message: string, options: IGOp
   });
   return { success: res.ok, status: res.status };
 }
+
+/**
+ * Get a single comment by ID with replies and like count
+ */
+export async function getCommentById(commentId: string, options: IGOptions) {
+  try {
+    const res = await fetch(
+      `${GRAPH_API}/${commentId}?fields=id,text,like_count,replies{id,text}&access_token=${options.accessToken}`
+    );
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+

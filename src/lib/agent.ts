@@ -12,6 +12,7 @@ import { isAccountSafe } from "./account-health";
 import { hasEngaged, markEngaged } from "./dedup";
 import { analyzeSentiment } from "./sentiment";
 import { getConversation, recordInteraction, buildMemoryPrompt, isDuplicateResponse } from "./conversation-memory";
+import { trackComment, getInsights } from "./performance-learning";
 
 // Platform API imports
 import * as instagramApi from "./platforms/instagram";
@@ -58,6 +59,7 @@ interface EngagementOpportunity {
 }
 
 interface AgentConfig {
+  userEmail: string;
   businessContext: BusinessContext;
   accounts: ConnectedAccount[];
   rules: EngagementRule[];
@@ -80,6 +82,9 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
     errors: [] as string[],
     actions: [] as Array<{ platform: string; action: string; target: string; content: string; status: string }>,
   };
+
+  // Load performance insights for AI prompt injection once per cycle
+  const perfInsights = await getInsights(config.userEmail);
 
   for (const rule of config.rules) {
     if (!rule.enabled) continue;
@@ -142,6 +147,7 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
                 contentType: opp.contentType,
                 sentimentGuidance: sentiment?.responseGuidance,
                 conversationMemory: memoryPrompt,
+                performanceLearning: perfInsights.promptGuidance,
               },
               businessContext: config.businessContext,
             };
@@ -169,7 +175,7 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
               metadata: account.metadata,
             });
 
-            // 6. Record in memory + dedup
+            // 6. Record in memory + dedup + performance tracking
             if (result.success) {
               await markEngaged(platform, account.id, opp.targetId);
               await recordInteraction(platform, account.id, personId, {
@@ -179,6 +185,12 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
                 platform,
                 sentiment: sentiment?.sentiment,
               });
+              // Track for performance learning
+              await trackComment(
+                config.userEmail, platform, rule.action,
+                opp.targetId, content, sentiment?.sentiment || "neutral",
+                (result as { commentId?: string }).commentId
+              ).catch(() => {}); // Non-blocking
             }
 
             results.actions.push({

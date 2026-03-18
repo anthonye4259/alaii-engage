@@ -127,3 +127,20 @@ export async function sendDM(recipientId: string, text: string, options: XOption
   });
   return { success: res.ok, status: res.status };
 }
+
+/**
+ * Get a single tweet by ID with metrics
+ */
+export async function getTweetById(tweetId: string, options: XOptions) {
+  try {
+    const res = await fetch(
+      `${X_API}/tweets/${tweetId}?tweet.fields=public_metrics,created_at`, {
+        headers: { Authorization: `Bearer ${options.accessToken}` },
+      }
+    );
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+

@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
         });
 
         const config: AgentConfig = {
+          userEmail: email,
           businessContext: {
             ...DEFAULT_BUSINESS_CONTEXT,
             ...bizContext,
