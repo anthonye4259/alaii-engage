@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { saveConnectedAccount, registerActiveUser } from "@/lib/connected-accounts";
 
-// Reddit OAuth callback
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
@@ -9,6 +10,9 @@ export async function GET(req: NextRequest) {
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/accounts?error=reddit_denied`);
   }
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(`${appUrl}/login`);
 
   try {
     const basicAuth = Buffer.from(
@@ -34,21 +38,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${appUrl}/accounts?error=reddit_token_failed`);
     }
 
-    // Get user profile
     const userRes = await fetch("https://oauth.reddit.com/api/v1/me", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        "User-Agent": "AlaiEngage/1.0",
-      },
+      headers: { Authorization: `Bearer ${tokenData.access_token}`, "User-Agent": "AlaiEngage/1.0" },
     });
     const userData = await userRes.json();
 
-    // TODO: Store token + user in database
-    console.log("✅ Reddit connected:", {
-      username: userData.name,
-      karma: userData.total_karma,
-      refreshToken: tokenData.refresh_token?.slice(0, 20) + "...",
+    await saveConnectedAccount(user.email, {
+      platform: "reddit",
+      handle: userData.name || "connected",
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      platformUserId: userData.name,
+      connectedAt: new Date().toISOString(),
     });
+    await registerActiveUser(user.email);
 
     return NextResponse.redirect(`${appUrl}/accounts?connected=reddit`);
   } catch (err) {

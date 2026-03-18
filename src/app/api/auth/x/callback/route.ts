@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { saveConnectedAccount, registerActiveUser } from "@/lib/connected-accounts";
 
-// X (Twitter) OAuth 2.0 callback
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
@@ -9,6 +10,9 @@ export async function GET(req: NextRequest) {
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/accounts?error=x_denied`);
   }
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(`${appUrl}/login`);
 
   try {
     const basicAuth = Buffer.from(
@@ -34,18 +38,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${appUrl}/accounts?error=x_token_failed`);
     }
 
-    // Get user profile
-    const userRes = await fetch("https://api.twitter.com/2/users/me?user.fields=name,username,profile_image_url,public_metrics", {
+    const userRes = await fetch("https://api.twitter.com/2/users/me?user.fields=name,username,public_metrics", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const userData = await userRes.json();
 
-    // TODO: Store token + user in database
-    console.log("✅ X connected:", {
-      userId: userData.data?.id,
-      username: userData.data?.username,
-      followers: userData.data?.public_metrics?.followers_count,
+    await saveConnectedAccount(user.email, {
+      platform: "x",
+      handle: userData.data?.username || "connected",
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      platformUserId: userData.data?.id,
+      connectedAt: new Date().toISOString(),
     });
+    await registerActiveUser(user.email);
 
     return NextResponse.redirect(`${appUrl}/accounts?connected=x`);
   } catch (err) {

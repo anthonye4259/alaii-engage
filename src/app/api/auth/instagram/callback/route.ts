@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { saveConnectedAccount, registerActiveUser } from "@/lib/connected-accounts";
 
-// Instagram OAuth callback — exchange code for token, get IG business account
+// Instagram OAuth callback — exchange code for token, store per user
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
@@ -8,6 +10,12 @@ export async function GET(req: NextRequest) {
 
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/accounts?error=instagram_denied`);
+  }
+
+  // Get the current user from session
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.redirect(`${appUrl}/login`);
   }
 
   try {
@@ -34,30 +42,49 @@ export async function GET(req: NextRequest) {
       `&fb_exchange_token=${tokenData.access_token}`
     );
     const longLivedData = await longLivedRes.json();
+    const accessToken = longLivedData.access_token || tokenData.access_token;
 
     // Get Facebook Pages
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?access_token=${longLivedData.access_token || tokenData.access_token}`
+      `https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}`
     );
     const pagesData = await pagesRes.json();
+
+    let handle = "";
+    let platformUserId = "";
+    let pageToken = "";
 
     // Get Instagram Business Account from first page
     if (pagesData.data?.[0]) {
       const pageId = pagesData.data[0].id;
-      const pageToken = pagesData.data[0].access_token;
+      pageToken = pagesData.data[0].access_token;
 
       const igRes = await fetch(
         `https://graph.facebook.com/v21.0/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
       );
       const igData = await igRes.json();
+      platformUserId = igData.instagram_business_account?.id || "";
 
-      // TODO: Store token + IG account in database
-      console.log("✅ Instagram connected:", {
-        igAccountId: igData.instagram_business_account?.id,
-        pageId,
-        pageToken: pageToken.slice(0, 20) + "...",
-      });
+      // Get IG username
+      if (platformUserId) {
+        const profileRes = await fetch(
+          `https://graph.facebook.com/v21.0/${platformUserId}?fields=username&access_token=${pageToken}`
+        );
+        const profileData = await profileRes.json();
+        handle = profileData.username || "";
+      }
     }
+
+    // Save to Redis per-user
+    await saveConnectedAccount(user.email, {
+      platform: "instagram",
+      handle: handle || "connected",
+      accessToken,
+      pageToken,
+      platformUserId,
+      connectedAt: new Date().toISOString(),
+    });
+    await registerActiveUser(user.email);
 
     return NextResponse.redirect(`${appUrl}/accounts?connected=instagram`);
   } catch (err) {

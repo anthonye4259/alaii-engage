@@ -172,6 +172,18 @@ export async function isMember(key: string, member: string): Promise<boolean> {
 }
 
 /**
+ * Get all members of a set
+ */
+export async function getSet(key: string): Promise<string[]> {
+  if (isRedisAvailable()) {
+    return await redisCommand<string[]>(["SMEMBERS", key]) || [];
+  } else {
+    const s = memSets.get(key);
+    return s ? Array.from(s) : [];
+  }
+}
+
+/**
  * Set JSON data with optional TTL
  */
 export async function setJSON<T>(key: string, data: T, ttlSeconds?: number): Promise<void> {
