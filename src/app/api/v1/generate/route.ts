@@ -53,12 +53,14 @@ export async function POST(request: NextRequest) {
 
   // Rate enforcement by plan
   const planLimits: Record<string, number> = {
-    free: 10,          // 10 free calls to try
+    free: 100,         // 100 free calls to try the product
     pro: 10000,        // 10K calls/month
     agency: 50000,     // 50K calls/month
     developer: 999999, // Effectively unlimited
   };
-  const limit = planLimits[user.plan] || 10;
+  const baseLimit = planLimits[user.plan] || 100;
+  const bonusCalls = user.bonusCalls || 0;
+  const limit = baseLimit + bonusCalls;
   const usage = await recordApiCall(apiKey);
 
   if (usage.callsThisPeriod > limit) {

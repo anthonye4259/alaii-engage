@@ -45,6 +45,36 @@ export async function logEngagement(userEmail: string, event: Omit<EngagementEve
   await store.increment(`stats:${userEmail}:${today}`, 86400);
   await store.increment(`stats:${userEmail}:${event.action}`, EVENTS_TTL);
   await store.increment(`stats:${userEmail}:${event.platform}`, EVENTS_TTL);
+
+  // Fire webhook (non-blocking)
+  fireWebhook(userEmail, fullEvent).catch(() => {});
+}
+
+/**
+ * Fire webhook for user if they have one configured
+ */
+async function fireWebhook(userEmail: string, event: EngagementEvent): Promise<void> {
+  const { getJSON } = await import("./store");
+  const user = await getJSON<{ webhookUrl?: string }>(`user:${userEmail}`);
+  if (!user?.webhookUrl) return;
+
+  try {
+    await fetch(user.webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "engagement.completed",
+        platform: event.platform,
+        action: event.action,
+        target: event.target,
+        content: event.detail,
+        timestamp: event.timestamp,
+        id: event.id,
+      }),
+    });
+  } catch {
+    // Silently fail — don't let webhook issues break the engagement flow
+  }
 }
 
 /**

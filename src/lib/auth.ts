@@ -21,6 +21,10 @@ export interface User {
   plan: "free" | "pro" | "agency" | "developer";
   stripeCustomerId?: string;
   apiKey?: string;
+  referralCode?: string;
+  referredBy?: string;
+  bonusCalls?: number;
+  webhookUrl?: string;
 }
 
 /**
@@ -54,6 +58,8 @@ export async function createUser(email: string, password: string): Promise<User>
   const { hash } = await hashPassword(password);
   const apiKey = `ae_${crypto.randomUUID().replace(/-/g, "")}`;
 
+  const referralCode = `ref_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+
   const user: User = {
     email,
     passwordHash: hash,
@@ -61,10 +67,13 @@ export async function createUser(email: string, password: string): Promise<User>
     onboarded: false,
     plan: "free",
     apiKey,
+    referralCode,
+    bonusCalls: 0,
   };
 
   await store.setJSON(`user:${email}`, user);
   await store.set(`apikey:${apiKey}`, email); // Reverse lookup for API auth
+  await store.set(`refcode:${referralCode}`, email); // Reverse lookup for referrals
   return user;
 }
 
