@@ -10,6 +10,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: AccountsIcon },
   { href: "/rules", label: "Rules", icon: RulesIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
+  { href: "/queue", label: "Queue", icon: QueueIcon },
   { href: "/docs", label: "API Docs", icon: DocsIcon },
   { href: "/pricing", label: "Pricing", icon: PricingIcon },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
@@ -198,3 +199,15 @@ function SettingsIcon({ active }: { active: boolean }) {
     </svg>
   );
 }
+
+function QueueIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE_COLOR : INACTIVE_COLOR} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M7 8h10" />
+      <path d="M7 12h10" />
+      <path d="M7 16h6" />
+    </svg>
+  );
+}
+
