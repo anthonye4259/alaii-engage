@@ -5,21 +5,21 @@ import Sidebar from "@/components/Sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-const PUBLIC_PATHS = ["/login", "/onboarding"];
+const PUBLIC_PATHS = ["/login", "/onboarding", "/landing", "/pricing", "/docs"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
-  const isPublicPage = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isPublicPage = PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname === "/";
 
   useEffect(() => {
     if (loading) return;
 
-    // Not logged in on a protected page → redirect to login
+    // Not logged in on a protected page → redirect to landing
     if (!user && !isPublicPage) {
-      router.replace("/login");
+      router.replace("/landing");
     }
 
     // Logged in but not onboarded → redirect to onboarding
@@ -37,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Public pages (login, onboarding) — no sidebar
+  // Public pages — no sidebar
   if (isPublicPage) {
     return <>{children}</>;
   }
