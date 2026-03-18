@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         for (const action of cycleResult.actions) {
           await logEngagement(email, {
             platform: action.platform,
-            action: action.type,
+            action: action.action,
             target: action.target || "",
             detail: action.content || "",
           });
