@@ -312,6 +312,8 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <Link href="/docs" className="text-xs text-text-muted hover:text-text-secondary">API Docs</Link>
             <Link href="/pricing" className="text-xs text-text-muted hover:text-text-secondary">Pricing</Link>
+            <Link href="/privacy" className="text-xs text-text-muted hover:text-text-secondary">Privacy</Link>
+            <Link href="/terms" className="text-xs text-text-muted hover:text-text-secondary">Terms</Link>
             <a href="https://alaii-engage.vercel.app/openapi.json" className="text-xs text-text-muted hover:text-text-secondary">OpenAPI Spec</a>
           </div>
         </div>
