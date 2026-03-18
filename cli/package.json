@@ -1,0 +1,27 @@
+{
+  "name": "alaii-engage",
+  "version": "1.0.0",
+  "description": "AI Social Media Engagement CLI — Generate human-like engagement content from your terminal",
+  "bin": {
+    "alaii-engage": "./index.mjs"
+  },
+  "keywords": [
+    "ai",
+    "social-media",
+    "engagement",
+    "automation",
+    "instagram",
+    "tiktok",
+    "linkedin",
+    "reddit",
+    "cli",
+    "agent"
+  ],
+  "author": "Alaii",
+  "license": "MIT",
+  "homepage": "https://alaii-engage.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthonye4259/alaii-engage"
+  }
+}

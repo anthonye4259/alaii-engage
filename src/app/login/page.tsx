@@ -29,7 +29,7 @@ function LoginContent() {
 
       if (res.ok && data.success) {
         // Redirect to onboarding (new) or dashboard (returning)
-        window.location.href = data.user?.onboarded ? "/" : "/onboarding";
+        window.location.href = data.user?.onboarded ? "/dashboard" : "/onboarding";
       } else {
         setError(data.error || "Something went wrong");
       }
