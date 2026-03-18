@@ -1,0 +1,196 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Alaii Engage API",
+    "description": "AI-powered social media engagement content generation API. Generate human-like comments, replies, DMs, and captions for Instagram, TikTok, X, LinkedIn, Reddit, and Facebook. $0.01 per API call.",
+    "version": "1.0.0",
+    "contact": { "email": "support@alaii.app" }
+  },
+  "servers": [
+    { "url": "https://alaii-engage.vercel.app", "description": "Production" }
+  ],
+  "paths": {
+    "/api/auth/signup": {
+      "post": {
+        "operationId": "createAccount",
+        "summary": "Create account and get API key",
+        "description": "Sign up with email and password. Returns an API key (ae_...) for authenticating all subsequent API calls.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "description": "Your email address" },
+                  "password": { "type": "string", "minLength": 6, "description": "Password (min 6 chars)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "email": { "type": "string" },
+                        "apiKey": { "type": "string", "description": "Use as Bearer token for all API calls" },
+                        "plan": { "type": "string", "enum": ["free", "pro", "agency", "developer"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Sign in and get API key",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful, returns user with API key" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/generate": {
+      "post": {
+        "operationId": "generateContent",
+        "summary": "Generate AI engagement content ($0.01/call)",
+        "description": "Generate human-like social media engagement content. Returns 3 variations optimized for the target platform with anti-detection measures. Costs $0.01 per call, billed monthly.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["platform", "type"],
+                "properties": {
+                  "platform": {
+                    "type": "string",
+                    "enum": ["instagram", "tiktok", "x", "linkedin", "reddit", "facebook"],
+                    "description": "Target social media platform"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["comment_reply", "hashtag_comment", "dm_welcome", "dm_outreach", "repost_caption"],
+                    "description": "Type of engagement content to generate"
+                  },
+                  "context": {
+                    "type": "object",
+                    "properties": {
+                      "originalContent": { "type": "string", "description": "The post or comment being replied to" },
+                      "authorName": { "type": "string", "description": "Username of the original author" },
+                      "authorBio": { "type": "string", "description": "Bio of the original author" },
+                      "hashtag": { "type": "string", "description": "Relevant hashtag" }
+                    }
+                  },
+                  "business": {
+                    "type": "object",
+                    "description": "Optional business context (overrides account defaults)",
+                    "properties": {
+                      "businessName": { "type": "string" },
+                      "industry": { "type": "string" },
+                      "description": { "type": "string" },
+                      "tone": { "type": "string" },
+                      "targetAudience": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Content generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "content": { "type": "string", "description": "Best content variation" },
+                    "variations": { "type": "array", "items": { "type": "string" }, "description": "All 3 variations" },
+                    "confidence": { "type": "number", "description": "0-1 confidence score" },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "callsThisPeriod": { "type": "integer" },
+                        "estimatedCost": { "type": "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid or missing API key" },
+          "429": { "description": "Monthly rate limit exceeded" }
+        }
+      }
+    },
+    "/api/v1/usage": {
+      "get": {
+        "operationId": "getUsage",
+        "summary": "Check API usage and billing",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current usage stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "callsThisPeriod": { "type": "integer" },
+                    "estimatedCost": { "type": "number" },
+                    "periodStart": { "type": "string", "format": "date-time" },
+                    "periodEnd": { "type": "string", "format": "date-time" },
+                    "ratePerCall": { "type": "number", "example": 0.01 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key from signup (starts with ae_). Use: Authorization: Bearer ae_your_key"
+      }
+    }
+  }
+}

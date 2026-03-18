@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Alaii Engage",
+  "name_for_model": "alaii_engage",
+  "description_for_human": "Automate social media engagement with AI across Instagram, TikTok, X, LinkedIn, Reddit, and Facebook.",
+  "description_for_model": "Alaii Engage is an API that generates human-like social media engagement content. It produces comment replies, hashtag comments, DM templates, and repost captions optimized for each platform. Use it to automate social media engagement at $0.01 per API call. Authentication: sign up at POST /api/auth/signup with {email, password} to get an API key (ae_...), then use Bearer auth.",
+  "auth": {
+    "type": "user_http",
+    "authorization_type": "bearer"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://alaii-engage.vercel.app/openapi.json"
+  },
+  "logo_url": "https://alaii-engage.vercel.app/logo.png",
+  "contact_email": "support@alaii.app",
+  "legal_info_url": "https://alaii-engage.vercel.app/docs"
+}

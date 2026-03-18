@@ -1,0 +1,13 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /pricing
+Allow: /docs
+Allow: /login
+
+Disallow: /api/
+Disallow: /onboarding
+Disallow: /settings
+Disallow: /chat
+
+Sitemap: https://alaii-engage.vercel.app/sitemap.xml
