@@ -10,6 +10,8 @@ import { generateContent, type BusinessContext, type GenerateRequest } from "./a
 import { canPerformAction, type ActionType } from "./rate-limiter";
 import { isAccountSafe } from "./account-health";
 import { hasEngaged, markEngaged } from "./dedup";
+import { analyzeSentiment } from "./sentiment";
+import { getConversation, recordInteraction, buildMemoryPrompt, isDuplicateResponse } from "./conversation-memory";
 
 // Platform API imports
 import * as instagramApi from "./platforms/instagram";
@@ -49,6 +51,9 @@ interface EngagementOpportunity {
   content?: string;
   authorName?: string;
   authorBio?: string;
+  authorId?: string;         // Unique person ID for conversation memory
+  contentType?: "photo" | "video" | "carousel" | "text" | "reel" | "story"; // Post type awareness
+  engagementMetrics?: { likes?: number; comments?: number; shares?: number; followers?: number };
   timestamp: Date;
 }
 
@@ -116,6 +121,17 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
           if (!check.allowed) break;
 
           try {
+            // --- INTELLIGENCE LAYER ---
+
+            // 1. Analyze sentiment of incoming content
+            const sentiment = opp.content ? analyzeSentiment(opp.content) : undefined;
+
+            // 2. Get conversation history with this person
+            const personId = opp.authorId || opp.authorName || opp.targetId;
+            const conversation = await getConversation(platform, account.id, personId);
+            const memoryPrompt = buildMemoryPrompt(conversation);
+
+            // 3. Build context-aware generation request
             const genRequest: GenerateRequest = {
               type: mapActionToGenType(rule.action),
               platform,
@@ -123,15 +139,25 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
                 originalContent: opp.content,
                 authorName: opp.authorName,
                 authorBio: opp.authorBio,
+                contentType: opp.contentType,
+                sentimentGuidance: sentiment?.responseGuidance,
+                conversationMemory: memoryPrompt,
               },
               businessContext: config.businessContext,
             };
 
             const generated = await generateContent(genRequest);
-            const content = generated.variations[
-              Math.floor(Math.random() * generated.variations.length)
-            ];
 
+            // 4. Pick a variation that isn't a duplicate of past responses
+            let content = generated.variations[0];
+            for (const v of generated.variations) {
+              if (!isDuplicateResponse(v, conversation.history)) {
+                content = v;
+                break;
+              }
+            }
+
+            // 5. Execute the engagement
             const result = await engage({
               accountId: account.id,
               platform,
@@ -143,9 +169,16 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
               metadata: account.metadata,
             });
 
-            // Mark as engaged to prevent duplicate actions
+            // 6. Record in memory + dedup
             if (result.success) {
               await markEngaged(platform, account.id, opp.targetId);
+              await recordInteraction(platform, account.id, personId, {
+                action: rule.action,
+                contentSent: content,
+                contentReceived: opp.content,
+                platform,
+                sentiment: sentiment?.sentiment,
+              });
             }
 
             results.actions.push({
@@ -159,8 +192,9 @@ export async function runEngagementCycle(config: AgentConfig): Promise<{
             if (result.success) { results.engaged++; }
             else { results.skipped++; }
 
-            // Human-like pause between actions
-            await sleep(3000 + Math.random() * 5000);
+            // Human-like pause — proportional to content length (longer content = more "thinking time")
+            const thinkTime = Math.min((opp.content?.length || 50) * 60, 8000);
+            await sleep(3000 + thinkTime + Math.random() * 5000);
           } catch (err) {
             results.errors.push(`Error on ${platform}/${opp.targetId}: ${err}`);
           }
@@ -479,43 +513,69 @@ function mapActionToGenType(action: ActionType): GenerateRequest["type"] {
 function scoreOpportunity(opp: EngagementOpportunity, biz: BusinessContext): number {
   let score = 50; // Base score
 
-  // Relevance: does the content mention keywords related to our business?
+  // --- RELEVANCE (up to +25) ---
   if (opp.content && biz.description) {
     const keywords = [
       ...biz.description.toLowerCase().split(/\s+/),
       ...biz.industry.toLowerCase().split(/\s+/),
       ...(biz.targetAudience || "").toLowerCase().split(/\s+/),
-    ].filter((w) => w.length > 3); // Only meaningful words
+    ].filter((w) => w.length > 3);
 
     const contentLower = opp.content.toLowerCase();
     const matches = keywords.filter((kw) => contentLower.includes(kw));
-    score += Math.min(matches.length * 5, 25); // Up to +25 for relevance
+    score += Math.min(matches.length * 5, 25);
   }
 
-  // Recency: prefer posts < 4 hours old
+  // --- RECENCY (up to +20, down to -15) ---
   const ageMs = Date.now() - opp.timestamp.getTime();
   const ageHours = ageMs / 3_600_000;
-  if (ageHours < 1) score += 20;        // < 1 hour: +20
-  else if (ageHours < 4) score += 10;   // < 4 hours: +10
-  else if (ageHours > 24) score -= 15;  // > 24 hours: -15
+  if (ageHours < 1) score += 20;
+  else if (ageHours < 4) score += 10;
+  else if (ageHours > 24) score -= 15;
 
-  // Author quality: filter bot-like accounts
+  // --- AUTHOR QUALITY (up to +15, down to -30) ---
   if (opp.authorName) {
     const name = opp.authorName;
-    // Bot signals: all numbers, very short, contains "bot"
     if (/^\d+$/.test(name)) score -= 30;
     if (name.toLowerCase().includes("bot")) score -= 20;
     if (name.length < 3) score -= 10;
   }
-
-  // Author bio present = higher quality target
   if (opp.authorBio && opp.authorBio.length > 10) score += 10;
 
-  // Mentions are higher value than hashtag posts
+  // --- ENGAGEMENT METRICS (up to +15) ---
+  if (opp.engagementMetrics) {
+    const m = opp.engagementMetrics;
+    // High-engagement content = more visibility for our reply
+    if ((m.likes || 0) > 100) score += 5;
+    if ((m.comments || 0) > 20) score += 5;
+    // Author with followers = higher value target
+    if ((m.followers || 0) > 1000) score += 5;
+    else if ((m.followers || 0) > 10000) score += 10;
+  }
+
+  // --- SENTIMENT BONUS ---
+  if (opp.content) {
+    const sentiment = analyzeSentiment(opp.content);
+    // Questions are GOLD — always respond
+    if (sentiment.sentiment === "question") score += 15;
+    // Complaints need immediate attention
+    if (sentiment.sentiment === "complaint") score += 20;
+    // Positive = easy engagement, lower priority but still good
+    if (sentiment.sentiment === "positive") score += 5;
+    // Negative = important for reputation management
+    if (sentiment.sentiment === "negative") score += 10;
+  }
+
+  // --- CONTENT TYPE ---
+  if (opp.contentType === "video" || opp.contentType === "reel") score += 5; // Video comments get more visibility
+
+  // --- OPPORTUNITY TYPE ---
   if (opp.type === "mention") score += 15;
   if (opp.type === "comment") score += 10;
 
-  // Clamp to 0-100
+  // --- CONTENT LENGTH (longer = more thoughtful, higher value) ---
+  if (opp.content && opp.content.length > 50) score += 5;
+
   return Math.max(0, Math.min(100, score));
 }
 

@@ -27,6 +27,9 @@ interface GenerateRequest {
     authorName?: string;
     authorBio?: string;
     hashtag?: string;
+    contentType?: "photo" | "video" | "carousel" | "text" | "reel" | "story";
+    sentimentGuidance?: string;
+    conversationMemory?: string;
   };
   businessContext: BusinessContext;
 }
@@ -250,6 +253,25 @@ function buildUserPrompt(
   }
   if (biz.additionalContext) {
     prompt += `ADDITIONAL CONTEXT: ${biz.additionalContext}\n`;
+  }
+
+  // Content type awareness
+  if (context.contentType) {
+    const typeLabels: Record<string, string> = {
+      photo: "a photo post", video: "a video", carousel: "a carousel/slideshow",
+      text: "a text post", reel: "a short-form reel/video", story: "a story",
+    };
+    prompt += `POST TYPE: This is ${typeLabels[context.contentType] || context.contentType}. Tailor your response accordingly — e.g. reference visuals for photos, reference the video for reels.\n`;
+  }
+
+  // Sentiment guidance
+  if (context.sentimentGuidance) {
+    prompt += `\n${context.sentimentGuidance}\n`;
+  }
+
+  // Conversation memory
+  if (context.conversationMemory) {
+    prompt += `\n${context.conversationMemory}\n`;
   }
 
   prompt += "\n---\n\n";
