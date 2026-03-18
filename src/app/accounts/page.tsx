@@ -12,15 +12,16 @@ interface Account {
   handle: string;
   followers: string;
   authUrl: string;
+  description: string;
 }
 
 const initialAccounts: Account[] = [
-  { id: "instagram", name: "Instagram", IconComponent: InstagramIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/instagram" },
-  { id: "tiktok", name: "TikTok", IconComponent: TikTokIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/tiktok" },
-  { id: "linkedin", name: "LinkedIn", IconComponent: LinkedInIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/linkedin" },
-  { id: "facebook", name: "Facebook", IconComponent: FacebookIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/facebook" },
-  { id: "x", name: "X (Twitter)", IconComponent: XIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/x" },
-  { id: "reddit", name: "Reddit", IconComponent: RedditIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/reddit" },
+  { id: "instagram", name: "Instagram", IconComponent: InstagramIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/instagram", description: "Connects via Facebook (Meta requires this for IG Business)" },
+  { id: "tiktok", name: "TikTok", IconComponent: TikTokIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/tiktok", description: "Connect your TikTok creator account" },
+  { id: "linkedin", name: "LinkedIn", IconComponent: LinkedInIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/linkedin", description: "Connect your LinkedIn profile" },
+  { id: "facebook", name: "Facebook", IconComponent: FacebookIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/facebook", description: "Connect your Facebook pages" },
+  { id: "x", name: "X (Twitter)", IconComponent: XIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/x", description: "Connect your X account" },
+  { id: "reddit", name: "Reddit", IconComponent: RedditIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/reddit", description: "Connect your Reddit account" },
 ];
 
 export default function AccountsPage() {
@@ -121,7 +122,7 @@ function AccountsContent() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-text-primary font-semibold text-sm">Sign in with {account.name}</h3>
-                  <p className="text-text-muted text-xs mt-0.5">Connect via official OAuth</p>
+                  <p className="text-text-muted text-xs mt-0.5">{account.description}</p>
                 </div>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />

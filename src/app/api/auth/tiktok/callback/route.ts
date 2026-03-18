@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { saveConnectedAccount, registerActiveUser } from "@/lib/connected-accounts";
 
-// TikTok OAuth callback
+// TikTok OAuth callback — exchange code for token, store per user
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
@@ -9,6 +11,9 @@ export async function GET(req: NextRequest) {
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/accounts?error=tiktok_denied`);
   }
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(`${appUrl}/login`);
 
   try {
     const tokenRes = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
@@ -35,12 +40,15 @@ export async function GET(req: NextRequest) {
     });
     const userData = await userRes.json();
 
-    // TODO: Store token + user in database
-    console.log("✅ TikTok connected:", {
-      openId: tokenData.data.open_id,
-      displayName: userData.data?.user?.display_name,
-      accessToken: tokenData.data.access_token.slice(0, 20) + "...",
+    await saveConnectedAccount(user.email, {
+      platform: "tiktok",
+      handle: userData.data?.user?.display_name || "connected",
+      accessToken: tokenData.data.access_token,
+      refreshToken: tokenData.data.refresh_token,
+      platformUserId: tokenData.data.open_id,
+      connectedAt: new Date().toISOString(),
     });
+    await registerActiveUser(user.email);
 
     return NextResponse.redirect(`${appUrl}/accounts?connected=tiktok`);
   } catch (err) {

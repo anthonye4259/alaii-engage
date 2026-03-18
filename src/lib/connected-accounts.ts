@@ -15,6 +15,7 @@ export interface ConnectedAccount {
   pageToken?: string;       // Facebook Page token
   expiresAt?: string;
   connectedAt: string;
+  metadata?: Record<string, string>;  // Platform-specific extras (FB page ID, etc.)
 }
 
 const TTL = 90 * 24 * 3600; // 90 days

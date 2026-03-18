@@ -1,76 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { saveConnectedAccount, registerActiveUser } from "@/lib/connected-accounts";
 
 // LinkedIn OAuth 2.0 - Step 2: Handle callback and exchange code for token
 export async function GET(req: NextRequest) {
-  const searchParams = req.nextUrl.searchParams;
-  const code = searchParams.get("code");
-  const state = searchParams.get("state");
-  const error = searchParams.get("error");
+  const code = req.nextUrl.searchParams.get("code");
+  const error = req.nextUrl.searchParams.get("error");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
-  if (error) {
-    console.error("LinkedIn OAuth error:", error);
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/accounts?error=linkedin_denied`
-    );
+  if (error || !code) {
+    return NextResponse.redirect(`${appUrl}/accounts?error=linkedin_denied`);
   }
 
-  if (!code) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/accounts?error=no_code`
-    );
-  }
-
-  // TODO: Verify state against stored session state
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.redirect(`${appUrl}/login`);
 
   try {
     // Exchange authorization code for access token
-    const tokenResponse = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+    const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/linkedin/callback`,
+        redirect_uri: `${appUrl}/api/auth/linkedin/callback`,
         client_id: process.env.LINKEDIN_CLIENT_ID!,
         client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
       }),
     });
-
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
-      console.error("Failed to get LinkedIn token:", tokenData);
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/accounts?error=token_failed`
-      );
+      return NextResponse.redirect(`${appUrl}/accounts?error=linkedin_token_failed`);
     }
 
     // Get user profile
-    const profileResponse = await fetch("https://api.linkedin.com/v2/userinfo", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
+    const profileRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
+    const profile = await profileRes.json();
 
-    const profile = await profileResponse.json();
-
-    // TODO: Store token + profile in database
-    console.log("✅ LinkedIn connected:", {
-      name: profile.name,
-      email: profile.email,
-      picture: profile.picture,
-      sub: profile.sub,
+    await saveConnectedAccount(user.email, {
+      platform: "linkedin",
+      handle: profile.name || profile.email || "connected",
       accessToken: tokenData.access_token,
-      expiresIn: tokenData.expires_in,
+      platformUserId: profile.sub,
+      connectedAt: new Date().toISOString(),
     });
+    await registerActiveUser(user.email);
 
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/accounts?connected=linkedin`
-    );
-  } catch (error) {
-    console.error("LinkedIn OAuth callback error:", error);
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/accounts?error=callback_failed`
-    );
+    return NextResponse.redirect(`${appUrl}/accounts?connected=linkedin`);
+  } catch (err) {
+    console.error("LinkedIn OAuth error:", err);
+    return NextResponse.redirect(`${appUrl}/accounts?error=linkedin_failed`);
   }
 }
