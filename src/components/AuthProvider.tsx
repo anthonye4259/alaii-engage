@@ -8,6 +8,10 @@ interface User {
   onboarded: boolean;
   plan: "free" | "pro" | "agency" | "developer";
   stripeCustomerId?: string;
+  apiKey?: string;
+  referralCode?: string;
+  bonusCalls?: number;
+  webhookUrl?: string;
 }
 
 interface AuthContextType {

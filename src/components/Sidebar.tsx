@@ -1,33 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 
 const navItems = [
-  { href: "/", label: "Home", icon: HomeIcon },
+  { href: "/dashboard", label: "Home", icon: HomeIcon },
   { href: "/chat", label: "Chat", icon: ChatIcon },
   { href: "/accounts", label: "Accounts", icon: AccountsIcon },
   { href: "/rules", label: "Rules", icon: RulesIcon },
   { href: "/activity", label: "Activity", icon: ActivityIcon },
+  { href: "/docs", label: "API Docs", icon: DocsIcon },
   { href: "/pricing", label: "Pricing", icon: PricingIcon },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
+const planLabels: Record<string, string> = {
+  free: "Free",
+  pro: "Pro — $40/mo",
+  agency: "Agency — $99/mo",
+  developer: "Developer",
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    window.location.href = "/landing";
+  };
+
+  const plan = user?.plan || "free";
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar-bg border-r border-border flex flex-col z-50">
       {/* Logo */}
       <div className="p-6 border-b border-border">
-        <div>
-          <img src="/logo.png" alt="Alaii" className="h-8 w-auto" />
-          <p className="text-text-muted text-xs mt-2">Social Engagement AI</p>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+            <span className="text-white font-bold text-sm">A</span>
+          </div>
+          <div>
+            <span className="text-sm font-bold text-text-primary">Alaii Engage</span>
+            <p className="text-text-muted text-xs">Social Engagement AI</p>
+          </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -47,18 +72,50 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Plan Badge */}
+      {/* Plan Badge — live data */}
       <div className="p-4 border-t border-border">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-text-secondary">Current Plan</span>
-            <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">PRO</span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+              plan === "free" ? "text-text-muted bg-surface" :
+              plan === "pro" ? "text-primary bg-primary/10" :
+              "text-accent bg-accent/10"
+            }`}>
+              {plan.toUpperCase()}
+            </span>
           </div>
-          <p className="text-text-muted text-xs">$40/mo · 4 platforms</p>
-          <div className="mt-3 w-full bg-border rounded-full h-1.5">
-            <div className="bg-primary h-1.5 rounded-full" style={{ width: "62%" }} />
+          <p className="text-text-muted text-xs">{planLabels[plan] || plan}</p>
+          {plan === "free" && (
+            <Link
+              href="/pricing"
+              className="mt-3 block text-center py-2 bg-gradient-to-r from-primary to-accent text-white rounded-lg text-xs font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all"
+            >
+              Upgrade →
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* User + Logout */}
+      <div className="p-4 border-t border-border">
+        <div className="flex items-center justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-text-primary truncate">
+              {user?.email || "—"}
+            </p>
           </div>
-          <p className="text-text-muted text-xs mt-1">156 / 250 engagements</p>
+          <button
+            onClick={handleLogout}
+            className="text-text-muted hover:text-error transition-colors shrink-0 ml-2"
+            title="Log out"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
     </aside>
@@ -109,6 +166,17 @@ function ActivityIcon({ active }: { active: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE_COLOR : INACTIVE_COLOR} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  );
+}
+
+function DocsIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? ACTIVE_COLOR : INACTIVE_COLOR} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
     </svg>
   );
 }
