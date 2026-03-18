@@ -51,8 +51,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
-  // Meter
+  // Rate enforcement by plan
+  const planLimits: Record<string, number> = {
+    free: 10,          // 10 free calls to try
+    pro: 10000,        // 10K calls/month
+    agency: 50000,     // 50K calls/month
+    developer: 999999, // Effectively unlimited
+  };
+  const limit = planLimits[user.plan] || 10;
   const usage = await recordApiCall(apiKey);
+
+  if (usage.callsThisPeriod > limit) {
+    return NextResponse.json({
+      error: `Monthly limit of ${limit.toLocaleString()} calls exceeded. Upgrade your plan.`,
+      usage: { callsThisPeriod: usage.callsThisPeriod, limit, estimatedCost: usage.estimatedCost },
+      upgrade: "https://alaii-engage.vercel.app/pricing",
+    }, { status: 429 });
+  }
 
   // Parse request
   try {
