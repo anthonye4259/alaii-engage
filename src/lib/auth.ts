@@ -1,7 +1,8 @@
 /**
- * Auth — Magic link authentication with Redis sessions
+ * Auth — Email + Password with Redis sessions
  *
- * Flow: email → magic link → verify token → create session cookie
+ * Agent-friendly: POST /api/auth/signup or /api/auth/login with JSON body.
+ * Passwords hashed with Web Crypto (no npm deps).
  * Sessions stored in Upstash Redis with 30-day TTL.
  */
 
@@ -10,51 +11,73 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
 const SESSION_TTL = 30 * 24 * 3600; // 30 days
-const MAGIC_TOKEN_TTL = 600;         // 10 minutes
 const SESSION_COOKIE = "ae_session";
 
 export interface User {
   email: string;
+  passwordHash: string;
   createdAt: string;
-  onboarded: boolean;           // Completed onboarding wizard?
+  onboarded: boolean;
   plan: "free" | "pro" | "agency" | "developer";
   stripeCustomerId?: string;
+  apiKey?: string;
 }
 
 /**
- * Generate a magic link token and store in Redis
+ * Hash a password using SHA-256 + salt (Web Crypto — zero deps)
  */
-export async function createMagicToken(email: string): Promise<string> {
-  const token = `ae_magic_${crypto.randomUUID().replace(/-/g, "")}`;
-  await store.setJSON(`magic:${token}`, { email, createdAt: new Date().toISOString() }, MAGIC_TOKEN_TTL);
-  return token;
+async function hashPassword(password: string, salt?: string): Promise<{ hash: string; salt: string }> {
+  const s = salt || crypto.randomUUID();
+  const data = new TextEncoder().encode(s + password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return { hash: `${s}:${hash}`, salt: s };
 }
 
 /**
- * Verify a magic link token and return the email
+ * Verify a password against a stored hash
  */
-export async function verifyMagicToken(token: string): Promise<string | null> {
-  const data = await store.getJSON<{ email: string }>(`magic:${token}`);
-  if (!data) return null;
-  // Delete token after use (one-time)
-  await store.del(`magic:${token}`);
-  return data.email;
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  const [salt] = storedHash.split(":");
+  const { hash } = await hashPassword(password, salt);
+  return hash === storedHash;
 }
 
 /**
- * Create or get a user record
+ * Create a new user account
  */
-export async function getOrCreateUser(email: string): Promise<User> {
+export async function createUser(email: string, password: string): Promise<User> {
   const existing = await store.getJSON<User>(`user:${email}`);
-  if (existing) return existing;
+  if (existing) throw new Error("Account already exists");
+
+  const { hash } = await hashPassword(password);
+  const apiKey = `ae_${crypto.randomUUID().replace(/-/g, "")}`;
 
   const user: User = {
     email,
+    passwordHash: hash,
     createdAt: new Date().toISOString(),
     onboarded: false,
     plan: "free",
+    apiKey,
   };
-  await store.setJSON(`user:${email}`, user, SESSION_TTL);
+
+  await store.setJSON(`user:${email}`, user);
+  await store.set(`apikey:${apiKey}`, email); // Reverse lookup for API auth
+  return user;
+}
+
+/**
+ * Authenticate with email + password
+ */
+export async function authenticateUser(email: string, password: string): Promise<User> {
+  const user = await store.getJSON<User>(`user:${email}`);
+  if (!user) throw new Error("Invalid email or password");
+
+  const valid = await verifyPassword(password, user.passwordHash);
+  if (!valid) throw new Error("Invalid email or password");
+
   return user;
 }
 
@@ -62,14 +85,15 @@ export async function getOrCreateUser(email: string): Promise<User> {
  * Update user data
  */
 export async function updateUser(email: string, updates: Partial<User>): Promise<User> {
-  const user = await getOrCreateUser(email);
+  const user = await store.getJSON<User>(`user:${email}`);
+  if (!user) throw new Error("User not found");
   const updated = { ...user, ...updates };
-  await store.setJSON(`user:${email}`, updated, SESSION_TTL);
+  await store.setJSON(`user:${email}`, updated);
   return updated;
 }
 
 /**
- * Create a session and set the cookie
+ * Create a session and return the session ID
  */
 export async function createSession(email: string): Promise<string> {
   const sessionId = `ae_sess_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -89,62 +113,52 @@ export async function getCurrentUser(): Promise<User | null> {
     const email = await store.get(`session:${sessionId}`);
     if (!email) return null;
 
-    return await getOrCreateUser(email);
+    const user = await store.getJSON<User>(`user:${email}`);
+    return user;
   } catch {
     return null;
   }
 }
 
 /**
- * Require auth — throws if not authenticated (for API routes)
+ * Auth via API key (for agents and programmatic access)
+ */
+export async function authenticateApiKey(apiKey: string): Promise<User | null> {
+  const email = await store.get(`apikey:${apiKey}`);
+  if (!email) return null;
+  return await store.getJSON<User>(`user:${email}`);
+}
+
+/**
+ * Require auth — checks session cookie OR API key header
  */
 export async function requireAuth(request: NextRequest): Promise<User> {
+  // Check API key first (agent-friendly)
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader?.startsWith("Bearer ae_")) {
+    const user = await authenticateApiKey(authHeader.replace("Bearer ", ""));
+    if (user) return user;
+  }
+
+  // Fall back to session cookie
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value;
   if (!sessionId) throw new Error("Not authenticated");
 
   const email = await store.get(`session:${sessionId}`);
   if (!email) throw new Error("Session expired");
 
-  return await getOrCreateUser(email);
+  const user = await store.getJSON<User>(`user:${email}`);
+  if (!user) throw new Error("User not found");
+  return user;
 }
 
 /**
- * Send a magic link email via Resend
+ * Strip sensitive fields before sending to client
  */
-export async function sendMagicLink(email: string, token: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error("RESEND_API_KEY not configured");
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
-  const verifyUrl = `${appUrl}/api/auth/verify?token=${token}`;
-
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      from: "Alaii Engage <noreply@alaii.app>",
-      to: [email],
-      subject: "Sign in to Alaii Engage",
-      html: `
-        <div style="font-family: Inter, -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
-          <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="font-size: 24px; font-weight: 700; color: #1E293B; margin: 0;">Alaii Engage</h1>
-            <p style="font-size: 14px; color: #64748B; margin-top: 4px;">AI-Powered Social Engagement</p>
-          </div>
-          <p style="font-size: 15px; color: #1E293B; line-height: 1.6;">Click the button below to sign in. This link expires in 10 minutes.</p>
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #4A9FD4, #5AC8FA); color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-size: 15px; font-weight: 600;">
-              Sign in to Alaii Engage →
-            </a>
-          </div>
-          <p style="font-size: 12px; color: #94A3B8; line-height: 1.5;">If you didn't request this, you can safely ignore this email.</p>
-        </div>
-      `,
-    }),
-  });
+export function safeUser(user: User) {
+  const { passwordHash, ...safe } = user;
+  void passwordHash;
+  return safe;
 }
 
 export { SESSION_COOKIE };

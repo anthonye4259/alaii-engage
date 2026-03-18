@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateUser, safeUser, createSession, SESSION_COOKIE } from "@/lib/auth";
+import { createUser, safeUser, createSession, SESSION_COOKIE } from "@/lib/auth";
 
 /**
- * POST /api/auth/login — Sign in with email + password
- * Agent-friendly: returns user data + API key
+ * POST /api/auth/signup — Create a new account
+ * Agent-friendly: returns API key on success
  *
  * Body: { email, password }
  * Response: { success, user: { email, apiKey, plan, ... } }
@@ -12,11 +12,14 @@ export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+    if (!email || !email.includes("@")) {
+      return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+    }
+    if (!password || password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    const user = await authenticateUser(email.toLowerCase().trim(), password);
+    const user = await createUser(email.toLowerCase().trim(), password);
     const sessionId = await createSession(user.email);
 
     const response = NextResponse.json({
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Login failed";
-    return NextResponse.json({ error: message }, { status: 401 });
+    const message = error instanceof Error ? error.message : "Signup failed";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
