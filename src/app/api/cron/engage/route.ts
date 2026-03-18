@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runEngagementCycle, type AgentConfig, type ConnectedAccount } from "@/lib/agent";
+import { runEngagementCycle, type AgentConfig, type ConnectedAccount as AgentAccount } from "@/lib/agent";
 import { DEFAULT_BUSINESS_CONTEXT } from "@/lib/ai-generator";
+import { getActiveUsers, getConnectedAccounts } from "@/lib/connected-accounts";
+import { getJSON } from "@/lib/store";
+import { logEngagement } from "@/lib/engagement-log";
+import type { User } from "@/lib/auth";
 
-// Cron endpoint - triggers one engagement cycle
-// Set up via vercel.json cron schedule (every 10 min)
-// Or call manually: POST /api/cron/engage
+/**
+ * Multi-tenant cron — iterates all users with connected accounts.
+ * Called every 10 min by Vercel cron or manually.
+ */
 export async function POST(req: NextRequest) {
-  // Verify cron secret
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
@@ -15,153 +19,110 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Load connected accounts from env vars
-    // Format: ACCOUNT_<PLATFORM>=<accessToken>:<platformUserId>:<metadata>
-    const accounts = loadAccountsFromEnv();
+    const activeEmails = await getActiveUsers();
 
-    if (accounts.length === 0) {
+    if (activeEmails.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No accounts configured. Set ACCOUNT_INSTAGRAM, ACCOUNT_TIKTOK, etc. env vars.",
-        scanned: 0,
-        engaged: 0,
-        skipped: 0,
-        errors: [],
-        actions: [],
+        message: "No active users with connected accounts.",
+        usersProcessed: 0,
       });
     }
 
-    const config: AgentConfig = {
-      businessContext: {
-        ...DEFAULT_BUSINESS_CONTEXT,
-        businessName: process.env.BUSINESS_NAME || "My Business",
-        description: process.env.BUSINESS_DESCRIPTION || "",
-        tone: process.env.BUSINESS_TONE || "professional but friendly",
-        targetAudience: process.env.TARGET_AUDIENCE || "",
-        industry: process.env.BUSINESS_INDUSTRY || "",
-        alwaysMention: process.env.ALWAYS_MENTION?.split(",").map((s) => s.trim()).filter(Boolean) || [],
-        neverSay: process.env.NEVER_SAY?.split(",").map((s) => s.trim()).filter(Boolean) || [],
-        additionalContext: process.env.BUSINESS_ADDITIONAL_CONTEXT || "",
-      },
-      accounts,
-      rules: [
-        {
-          id: "auto-reply",
-          name: "Auto-reply to comments",
-          enabled: true,
-          action: "reply_own_comment",
-          platforms: getEnabledPlatforms(accounts),
-          config: { replyToAll: true },
-        },
-        {
-          id: "like-mentions",
-          name: "Like mentions",
-          enabled: true,
-          action: "like_mention",
-          platforms: getEnabledPlatforms(accounts),
-          config: {},
-        },
-        {
-          id: "hashtag-engage",
-          name: "Comment on hashtags",
-          enabled: process.env.HASHTAG_ENGAGE_ENABLED === "true",
-          action: "comment_hashtag",
-          platforms: getEnabledPlatforms(accounts),
-          config: {
-            hashtags: process.env.TARGET_HASHTAGS?.split(",").map((s) => s.trim()).filter(Boolean) || [],
+    const results = [];
+
+    for (const email of activeEmails) {
+      try {
+        const userAccounts = await getConnectedAccounts(email);
+        if (userAccounts.length === 0) continue;
+
+        // Get the user's plan — only run for paid users
+        const user = await getJSON<User>(`user:${email}`);
+        if (!user || user.plan === "free") continue;
+
+        // Get user's business context (stored during onboarding)
+        const bizContext = await getJSON<typeof DEFAULT_BUSINESS_CONTEXT>(`business:${email}`) || DEFAULT_BUSINESS_CONTEXT;
+
+        // Map connected accounts to agent format
+        const agentAccounts: AgentAccount[] = userAccounts.map((a) => {
+          const meta: Record<string, string> = {};
+          if (a.pageToken) meta.pageToken = a.pageToken;
+          if (a.platformUserId) meta.igUserId = a.platformUserId;
+          return {
+            id: `${a.platform}_${email}`,
+            platform: a.platform as AgentAccount["platform"],
+            accessToken: a.accessToken,
+            platformUserId: a.platformUserId || "",
+            metadata: meta,
+          };
+        });
+
+        const config: AgentConfig = {
+          businessContext: {
+            ...DEFAULT_BUSINESS_CONTEXT,
+            ...bizContext,
           },
-        },
-      ],
-    };
+          accounts: agentAccounts,
+          rules: [
+            {
+              id: "auto-reply",
+              name: "Auto-reply to comments",
+              enabled: true,
+              action: "reply_own_comment",
+              platforms: [...new Set(agentAccounts.map((a) => a.platform))],
+              config: { replyToAll: true },
+            },
+            {
+              id: "like-mentions",
+              name: "Like mentions",
+              enabled: true,
+              action: "like_mention",
+              platforms: [...new Set(agentAccounts.map((a) => a.platform))],
+              config: {},
+            },
+          ],
+        };
 
-    const results = await runEngagementCycle(config);
+        const cycleResult = await runEngagementCycle(config);
 
-    console.log("Engagement cycle complete:", {
-      accounts: accounts.length,
-      scanned: results.scanned,
-      engaged: results.engaged,
-      skipped: results.skipped,
-      errors: results.errors.length,
-    });
+        // Log engagements for this user's dashboard
+        for (const action of cycleResult.actions) {
+          await logEngagement(email, {
+            platform: action.platform,
+            action: action.type,
+            target: action.target || "",
+            detail: action.content || "",
+          });
+        }
+
+        results.push({
+          email,
+          accounts: agentAccounts.length,
+          ...cycleResult,
+        });
+
+        console.log(`✅ Cron for ${email}: ${cycleResult.engaged} engagements`);
+      } catch (err) {
+        console.error(`❌ Cron error for ${email}:`, err);
+        results.push({ email, error: String(err) });
+      }
+    }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      accountsConfigured: accounts.length,
-      ...results,
+      usersProcessed: results.length,
+      results,
     });
   } catch (error) {
-    console.error("Engagement cycle error:", error);
+    console.error("Cron error:", error);
     return NextResponse.json(
-      { error: "Engagement cycle failed", details: String(error) },
+      { error: "Cron failed", details: String(error) },
       { status: 500 }
     );
   }
 }
 
-// Also handle GET for Vercel Cron
 export async function GET(req: NextRequest) {
   return POST(req);
-}
-
-/**
- * Load connected accounts from environment variables
- * Format: ACCOUNT_INSTAGRAM=accessToken:platformUserId:pageId:pageToken
- */
-function loadAccountsFromEnv(): ConnectedAccount[] {
-  const accounts: ConnectedAccount[] = [];
-  const platformMap: Record<string, string> = {
-    ACCOUNT_INSTAGRAM: "instagram",
-    ACCOUNT_TIKTOK: "tiktok",
-    ACCOUNT_FACEBOOK: "facebook",
-    ACCOUNT_X: "x",
-    ACCOUNT_REDDIT: "reddit",
-    ACCOUNT_LINKEDIN: "linkedin",
-  };
-
-  for (const [envKey, platform] of Object.entries(platformMap)) {
-    const value = process.env[envKey];
-    if (!value) continue;
-
-    const parts = value.split(":");
-    const accessToken = parts[0];
-    const platformUserId = parts[1] || "";
-    const metadata: Record<string, string> = {};
-
-    // Platform-specific metadata
-    if (platform === "facebook" || platform === "instagram") {
-      if (parts[2]) metadata.pageId = parts[2];
-      if (parts[3]) metadata.pageToken = parts[3];
-      if (platform === "instagram") metadata.igUserId = platformUserId;
-    }
-    if (platform === "tiktok") {
-      metadata.openId = platformUserId;
-    }
-    if (platform === "x") {
-      metadata.userId = platformUserId;
-    }
-    if (platform === "reddit") {
-      metadata.username = platformUserId;
-    }
-    if (platform === "linkedin") {
-      if (parts[2]) metadata.personUrn = parts[2];
-    }
-
-    accounts.push({
-      id: `${platform}_account`,
-      platform: platform as ConnectedAccount["platform"],
-      accessToken,
-      platformUserId,
-      metadata,
-    });
-  }
-
-  return accounts;
-}
-
-/**
- * Get the list of platforms that have connected accounts
- */
-function getEnabledPlatforms(accounts: ConnectedAccount[]): ConnectedAccount["platform"][] {
-  return [...new Set(accounts.map((a) => a.platform))];
 }
