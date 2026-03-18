@@ -80,7 +80,7 @@ export default function OnboardingPage() {
     } catch {
       // Continue anyway
     }
-    window.location.href = "/";
+    window.location.href = "/dashboard";
   };
 
   return (
