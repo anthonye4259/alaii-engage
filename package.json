@@ -2,6 +2,9 @@
   "name": "alaii-engage",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "alaii-engage": "./cli/index.mjs"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

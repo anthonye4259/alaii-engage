@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface ActivityItem {
   id: string;
@@ -8,34 +8,65 @@ interface ActivityItem {
   action: string;
   target: string;
   detail: string;
-  time: string;
-  color: string;
-  ruleName: string;
+  timestamp: string;
 }
 
-const allActivity: ActivityItem[] = [
-  { id: "1", platform: "instagram", action: "Commented on", target: "@fitnessstudio's post", detail: "\"Great transformation! Keep up the amazing work! 🔥\"", time: "2m ago", color: "#e1306c", ruleName: "Comment on hashtags" },
-  { id: "2", platform: "linkedin", action: "Liked", target: "12 posts matching #smallbusiness", detail: "", time: "5m ago", color: "#0a66c2", ruleName: "Like mentions" },
-  { id: "3", platform: "tiktok", action: "Replied to", target: "comment by @clientjane", detail: "\"Thanks for visiting! Can't wait to see you again 💈\"", time: "12m ago", color: "#00f2ea", ruleName: "Auto-reply to comments" },
-  { id: "4", platform: "instagram", action: "Sent DM to", target: "@newlead", detail: "\"Hey! Thanks for following Mike's Barbershop! We'd love to...\"", time: "18m ago", color: "#e1306c", ruleName: "DM new followers" },
-  { id: "5", platform: "facebook", action: "Reposted", target: "customer testimonial", detail: "Shared 5-star review from Sarah M.", time: "24m ago", color: "#1877f2", ruleName: "Repost testimonials" },
-  { id: "6", platform: "linkedin", action: "Commented on", target: "@marketingguru's article", detail: "\"Really insightful take on AI in small business marketing!\"", time: "35m ago", color: "#0a66c2", ruleName: "Comment on hashtags" },
-  { id: "7", platform: "tiktok", action: "Liked", target: "8 posts matching #barbershoptok", detail: "", time: "42m ago", color: "#00f2ea", ruleName: "Like mentions" },
-  { id: "8", platform: "instagram", action: "Replied to", target: "comment by @regularclient", detail: "\"See you next Thursday! Same time works perfectly 🙌\"", time: "1h ago", color: "#e1306c", ruleName: "Auto-reply to comments" },
-  { id: "9", platform: "linkedin", action: "Liked", target: "post by @bizconsultant", detail: "", time: "1h ago", color: "#0a66c2", ruleName: "Like mentions" },
-  { id: "10", platform: "instagram", action: "Commented on", target: "@localbusiness's grand opening post", detail: "\"Congrats on the opening! Love seeing new businesses in the area! 🎉\"", time: "2h ago", color: "#e1306c", ruleName: "Comment on hashtags" },
-  { id: "11", platform: "facebook", action: "Replied to", target: "question on your page", detail: "\"Yes we're open until 8pm on Fridays! Book online anytime.\"", time: "2h ago", color: "#1877f2", ruleName: "Auto-reply to comments" },
-  { id: "12", platform: "tiktok", action: "Replied to", target: "comment by @tiktokuser123", detail: "\"Thanks! We use a combination of fading techniques...\"", time: "3h ago", color: "#00f2ea", ruleName: "Auto-reply to comments" },
-];
+const platformColors: Record<string, string> = {
+  instagram: "#e1306c",
+  tiktok: "#00f2ea",
+  linkedin: "#0a66c2",
+  facebook: "#1877f2",
+  x: "#000000",
+  reddit: "#ff4500",
+};
 
-const filters = ["All", "Instagram", "TikTok", "LinkedIn", "Facebook"];
+const platformLabels: Record<string, string> = {
+  instagram: "IG",
+  tiktok: "TK",
+  linkedin: "LI",
+  facebook: "FB",
+  x: "X",
+  reddit: "RD",
+};
+
+const filters = ["All", "Instagram", "TikTok", "LinkedIn", "Facebook", "X", "Reddit"];
+
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export default function ActivityPage() {
   const [activeFilter, setActiveFilter] = useState("All");
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<{ total: number; today: number; thisWeek: number } | null>(null);
+
+  const fetchActivity = useCallback(async () => {
+    try {
+      const res = await fetch("/api/dashboard");
+      if (res.ok) {
+        const data = await res.json();
+        setActivity(data.recentActivity || []);
+        setStats(data.stats || null);
+      }
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchActivity();
+  }, [fetchActivity]);
 
   const filtered = activeFilter === "All"
-    ? allActivity
-    : allActivity.filter(a => a.platform.toLowerCase() === activeFilter.toLowerCase());
+    ? activity
+    : activity.filter((a) => a.platform.toLowerCase() === activeFilter.toLowerCase());
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -44,15 +75,24 @@ export default function ActivityPage() {
         <p className="text-text-secondary text-sm mt-1">Everything your AI engagement agent has done</p>
       </div>
 
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-4">
+          <StatCard label="Total engagements" value={stats.total} />
+          <StatCard label="Today" value={stats.today} />
+          <StatCard label="This week" value={stats.thisWeek} />
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {filters.map((filter) => (
           <button
             key={filter}
             onClick={() => setActiveFilter(filter)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
               activeFilter === filter
-                ? "bg-accent text-white"
+                ? "bg-primary text-white"
                 : "bg-card border border-border text-text-secondary hover:text-text-primary hover:border-border-hover"
             }`}
           >
@@ -62,34 +102,56 @@ export default function ActivityPage() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-card border border-border rounded-2xl divide-y divide-border">
-        {filtered.map((item) => (
-          <div key={item.id} className="p-5 hover:bg-surface-hover transition-colors">
-            <div className="flex items-start gap-4">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ backgroundColor: item.color + "15", color: item.color }}
-              >
-                {item.platform === "instagram" ? "IG" : item.platform === "tiktok" ? "TK" : item.platform === "linkedin" ? "LI" : "FB"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-text-primary">
-                  <span className="font-medium">{item.action}</span>{" "}
-                  <span className="text-text-secondary">{item.target}</span>
-                </p>
-                {item.detail && (
-                  <p className="text-sm text-text-muted mt-1">{item.detail}</p>
-                )}
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-xs text-text-muted">{item.time}</span>
-                  <span className="text-xs text-text-muted">·</span>
-                  <span className="text-xs text-accent">{item.ruleName}</span>
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-2xl p-12 text-center">
+          <p className="text-3xl mb-3">🤖</p>
+          <p className="text-text-primary font-medium">No activity yet</p>
+          <p className="text-text-muted text-sm mt-1">
+            Connect an account and enable some rules — your agent will start engaging automatically.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-2xl divide-y divide-border">
+          {filtered.map((item) => {
+            const color = platformColors[item.platform] || "#64748B";
+            return (
+              <div key={item.id} className="p-5 hover:bg-surface-hover transition-colors">
+                <div className="flex items-start gap-4">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ backgroundColor: color + "15", color }}
+                  >
+                    {platformLabels[item.platform] || item.platform.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary">
+                      <span className="font-medium capitalize">{item.action}</span>{" "}
+                      <span className="text-text-secondary">{item.target}</span>
+                    </p>
+                    {item.detail && (
+                      <p className="text-sm text-text-muted mt-1 truncate">&quot;{item.detail}&quot;</p>
+                    )}
+                    <span className="text-xs text-text-muted mt-2 inline-block">{timeAgo(item.timestamp)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5 text-center">
+      <p className="text-2xl font-bold text-text-primary">{value.toLocaleString()}</p>
+      <p className="text-xs text-text-muted mt-1">{label}</p>
     </div>
   );
 }

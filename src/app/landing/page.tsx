@@ -75,6 +75,7 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-6">
           <Link href="/pricing" className="text-sm text-text-secondary hover:text-text-primary transition">Pricing</Link>
+          <Link href="/blog" className="text-sm text-text-secondary hover:text-text-primary transition">Blog</Link>
           <Link href="/docs" className="text-sm text-text-secondary hover:text-text-primary transition">API Docs</Link>
           <Link href="/login" className="text-sm text-text-secondary hover:text-text-primary transition">Log in</Link>
           <Link

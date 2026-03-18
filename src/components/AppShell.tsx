@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-const PUBLIC_PATHS = ["/login", "/onboarding", "/landing", "/pricing", "/docs"];
+const PUBLIC_PATHS = ["/login", "/onboarding", "/landing", "/pricing", "/docs", "/blog"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
