@@ -51,14 +51,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
+  // Block free users — paid plans only
+  if (user.plan === "free") {
+    return NextResponse.json({
+      error: "Subscription required. Choose a plan to start generating content.",
+      upgrade: "https://alaii-engage.vercel.app/pricing",
+    }, { status: 403 });
+  }
+
   // Rate enforcement by plan
   const planLimits: Record<string, number> = {
-    free: 100,         // 100 free calls to try the product
     pro: 10000,        // 10K calls/month
     agency: 50000,     // 50K calls/month
     developer: 999999, // Effectively unlimited
   };
-  const baseLimit = planLimits[user.plan] || 100;
+  const baseLimit = planLimits[user.plan] || 0;
   const bonusCalls = user.bonusCalls || 0;
   const limit = baseLimit + bonusCalls;
   const usage = await recordApiCall(apiKey);

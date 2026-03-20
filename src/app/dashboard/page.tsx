@@ -107,8 +107,30 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, [user]);
 
-  if (!user || (user.plan === "free" && !data?.stats?.total)) {
+  if (!user) {
     return <EmptyState />;
+  }
+
+  // Paywall — free users must subscribe
+  if (user.plan === "free") {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-20">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 mx-auto flex items-center justify-center mb-6">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4A9FD4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-text-primary mb-2">Choose a plan to get started</h2>
+        <p className="text-text-secondary text-sm mb-8 max-w-md mx-auto">
+          Subscribe to unlock AI-powered engagement automation across Instagram, TikTok, X, LinkedIn, Reddit, and Facebook.
+        </p>
+        <a href="/pricing" className="inline-block px-8 py-3.5 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold shadow-lg shadow-primary/20 hover:shadow-xl transition-all">
+          View Plans & Subscribe →
+        </a>
+        <p className="text-text-muted text-xs mt-6">All plans include a 7-day free trial. Cancel anytime.</p>
+      </div>
+    );
   }
 
   if (loading) {

@@ -49,9 +49,8 @@ export default function TermsPage() {
 
         <h2>6. Pricing &amp; Billing</h2>
         <ul>
-          <li><strong>Free plan</strong>: 100 API calls per month, no charge</li>
-          <li><strong>Pro plan</strong>: $40/month for 10,000 API calls</li>
-          <li><strong>Agency plan</strong>: $99/month for 50,000 API calls</li>
+          <li><strong>Pro plan</strong>: $40/month for 10,000 API calls (7-day free trial)</li>
+          <li><strong>Agency plan</strong>: $99/month for 50,000 API calls (7-day free trial)</li>
         </ul>
         <p>Paid plans are billed monthly via Stripe. You may cancel at any time. Refunds are provided on a case-by-case basis for the current billing period.</p>
 

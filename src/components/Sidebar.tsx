@@ -18,7 +18,7 @@ const navItems = [
 ];
 
 const planLabels: Record<string, string> = {
-  free: "Free",
+  free: "No Plan",
   pro: "Pro — $40/mo",
   agency: "Agency — $99/mo",
   developer: "Developer",
@@ -93,7 +93,7 @@ export default function Sidebar() {
               href="/pricing"
               className="mt-3 block text-center py-2 bg-gradient-to-r from-primary to-accent text-white rounded-lg text-xs font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all"
             >
-              Upgrade →
+              Subscribe →
             </Link>
           )}
         </div>
