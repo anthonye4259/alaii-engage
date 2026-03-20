@@ -1,0 +1,40 @@
+{
+  "name": "@alaii/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for Alaii Engage — AI social media engagement tools for Claude, ChatGPT, and AI assistants",
+  "main": "dist/index.js",
+  "bin": {
+    "alaii-mcp": "dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "chatgpt",
+    "ai",
+    "social-media",
+    "engagement",
+    "tools"
+  ],
+  "author": "Alaii <dev@alaii.app>",
+  "license": "MIT",
+  "homepage": "https://github.com/anthonye4259/alaii-engage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthonye4259/alaii-engage.git",
+    "directory": "packages/mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

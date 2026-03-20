@@ -1,0 +1,38 @@
+{
+  "name": "alaii-engage",
+  "version": "0.1.0",
+  "description": "AI-powered social media engagement SDK — generate human-like replies, comments, and DMs across Instagram, TikTok, X, LinkedIn, Reddit, Facebook",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "social-media",
+    "ai",
+    "engagement",
+    "instagram",
+    "tiktok",
+    "twitter",
+    "linkedin",
+    "reddit",
+    "facebook",
+    "automation",
+    "langchain",
+    "crewai",
+    "agent"
+  ],
+  "author": "Alaii <dev@alaii.app>",
+  "license": "MIT",
+  "homepage": "https://github.com/anthonye4259/alaii-engage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthonye4259/alaii-engage.git",
+    "directory": "packages/sdk"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
