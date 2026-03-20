@@ -1,15 +1,16 @@
 import { Metadata } from "next";
+import DocsClientLayout from "./DocsClientLayout";
 
 export const metadata: Metadata = {
-  title: "API Documentation",
+  title: "Alaii Engage Documentation",
   description:
-    "Complete API reference for Alaii Engage. Generate AI-powered social media engagement content across Instagram, TikTok, X, LinkedIn, Reddit, and Facebook. Bearer token auth, $0.01/call.",
+    "Complete documentation for Alaii Engage — the open-source AI engagement engine for social media. Self-host or use the managed API.",
   openGraph: {
-    title: "Alaii Engage API Docs — Social Media AI API",
-    description: "Full API reference. Sign up, generate content, check usage. Agent-friendly with OpenAPI spec.",
+    title: "Alaii Engage Docs — Open Source AI Engagement",
+    description: "Installation guides, API reference, platform setup, and more.",
   },
 };
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <DocsClientLayout>{children}</DocsClientLayout>;
 }
