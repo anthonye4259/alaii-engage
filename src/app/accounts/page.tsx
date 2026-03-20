@@ -1,151 +1,126 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { InstagramIcon, TikTokIcon, LinkedInIcon, FacebookIcon, XIcon, RedditIcon } from "@/components/SocialIcons";
 
 interface Account {
-  id: string;
-  name: string;
-  IconComponent: React.FC<{ size?: number; className?: string }>;
-  connected: boolean;
+  platform: string;
   handle: string;
-  followers: string;
-  authUrl: string;
-  description: string;
+  connectedAt: string;
 }
 
-const initialAccounts: Account[] = [
-  { id: "instagram", name: "Instagram", IconComponent: InstagramIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/instagram", description: "Connects via Facebook (Meta requires this for IG Business)" },
-  { id: "tiktok", name: "TikTok", IconComponent: TikTokIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/tiktok", description: "Connect your TikTok creator account" },
-  { id: "linkedin", name: "LinkedIn", IconComponent: LinkedInIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/linkedin", description: "Connect your LinkedIn profile" },
-  { id: "facebook", name: "Facebook", IconComponent: FacebookIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/facebook", description: "Connect your Facebook pages" },
-  { id: "x", name: "X (Twitter)", IconComponent: XIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/x", description: "Connect your X account" },
-  { id: "reddit", name: "Reddit", IconComponent: RedditIcon, connected: false, handle: "", followers: "", authUrl: "/api/auth/reddit", description: "Connect your Reddit account" },
-];
+const platformMeta: Record<string, { name: string; Icon: React.ComponentType<{ size?: number; className?: string }>; color: string }> = {
+  instagram: { name: "Instagram", Icon: InstagramIcon, color: "#E1306C" },
+  tiktok: { name: "TikTok", Icon: TikTokIcon, color: "#000000" },
+  linkedin: { name: "LinkedIn", Icon: LinkedInIcon, color: "#0A66C2" },
+  facebook: { name: "Facebook", Icon: FacebookIcon, color: "#1877F2" },
+  x: { name: "X (Twitter)", Icon: XIcon, color: "#000000" },
+  reddit: { name: "Reddit", Icon: RedditIcon, color: "#FF4500" },
+};
+
+const allPlatforms = ["instagram", "tiktok", "linkedin", "facebook", "x", "reddit"];
 
 export default function AccountsPage() {
-  return (
-    <Suspense fallback={<div className="max-w-3xl mx-auto p-8 text-text-muted">Loading accounts...</div>}>
-      <AccountsContent />
-    </Suspense>
-  );
-}
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-function AccountsContent() {
-  const [accounts, setAccounts] = useState(initialAccounts);
-  const searchParams = useSearchParams();
-
-  // Handle OAuth callback success/error
   useEffect(() => {
-    const connected = searchParams.get("connected");
-    const error = searchParams.get("error");
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const error = params.get("error");
 
     if (connected) {
-      setAccounts((prev) =>
-        prev.map((a) =>
-          a.id === connected
-            ? { ...a, connected: true, handle: `@${connected}_user`, followers: "—" }
-            : a
-        )
-      );
+      setMessage({ type: "success", text: `Successfully connected ${platformMeta[connected]?.name || connected}!` });
+      window.history.replaceState({}, "", "/accounts");
+    } else if (error) {
+      setMessage({ type: "error", text: `Connection failed: ${error.replace(/_/g, " ")}` });
+      window.history.replaceState({}, "", "/accounts");
     }
 
-    if (error) {
-      console.error("OAuth error:", error);
-    }
-  }, [searchParams]);
+    fetch("/api/accounts")
+      .then((r) => r.json())
+      .then((data) => { setAccounts(data.accounts || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
-  const handleConnect = (account: Account) => {
-    // Redirect to OAuth flow
-    window.location.href = account.authUrl;
-  };
-
-  const handleDisconnect = (id: string) => {
-    setAccounts(accounts.map((a) =>
-      a.id === id ? { ...a, connected: false, handle: "", followers: "" } : a
-    ));
-  };
-
-  const connectedCount = accounts.filter((a) => a.connected).length;
+  const connectedIds = new Set(accounts.map((a) => a.platform));
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Connect Your Accounts</h1>
-        <p className="text-text-secondary text-sm mt-1">
-          {connectedCount === 0
-            ? "Sign in to your social accounts to start automating engagement"
-            : `${connectedCount} account${connectedCount > 1 ? "s" : ""} connected`}
-        </p>
+    <div className="max-w-2xl mx-auto py-10 px-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-text-primary">Connected Accounts</h1>
+        <p className="text-text-secondary text-sm mt-1">Manage your social media connections</p>
       </div>
 
-      <div className="space-y-3">
-        {accounts.map((account) => (
-          <div
-            key={account.id}
-            className="bg-card border border-border rounded-xl overflow-hidden card-hover"
-          >
-            {account.connected ? (
-              <div className="p-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center">
-                    <account.IconComponent size={24} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-text-primary font-semibold text-sm">{account.name}</h3>
-                      <span className="flex items-center gap-1 text-success text-xs font-medium">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Connected
-                      </span>
-                    </div>
-                    <p className="text-text-muted text-xs mt-0.5">{account.handle} · {account.followers} followers</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDisconnect(account.id)}
-                  className="text-xs text-text-muted hover:text-error transition-colors font-medium"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => handleConnect(account)}
-                className="w-full p-5 flex items-center gap-4 hover:bg-surface-hover transition-all duration-200 cursor-pointer text-left"
-              >
-                <div className="w-11 h-11 rounded-xl bg-surface flex items-center justify-center">
-                  <account.IconComponent size={24} />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-text-primary font-semibold text-sm">Sign in with {account.name}</h3>
-                  <p className="text-text-muted text-xs mt-0.5">{account.description}</p>
-                </div>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+      {message && (
+        <div className={`mb-6 p-4 rounded-2xl text-sm font-medium ${
+          message.type === "success"
+            ? "bg-green-50 text-green-700 border border-green-200"
+            : "bg-red-50 text-red-700 border border-red-200"
+        }`}>
+          {message.text}
+        </div>
+      )}
 
-      <div className="bg-surface border border-border rounded-xl p-5">
-        <div className="flex items-start gap-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#66A3D1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-text-primary">Your accounts are secure</p>
-            <p className="text-xs text-text-muted mt-1">
-              We use official platform APIs with OAuth. We never see or store your passwords. You can disconnect at any time.
-            </p>
+      {accounts.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-3">Connected</h2>
+          <div className="space-y-3">
+            {accounts.map((a) => {
+              const meta = platformMeta[a.platform];
+              if (!meta) return null;
+              return (
+                <div key={a.platform} className="flex items-center gap-4 p-4 bg-card border border-border rounded-2xl">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: meta.color + "12" }}>
+                    <meta.Icon size={20} className="opacity-80" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-primary">{meta.name}</p>
+                    <p className="text-xs text-text-muted">@{a.handle} · Connected {new Date(a.connectedAt).toLocaleDateString()}</p>
+                  </div>
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">Active</span>
+                </div>
+              );
+            })}
           </div>
         </div>
+      )}
+
+      {allPlatforms.filter((p) => !connectedIds.has(p)).length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide mb-3">Available</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {allPlatforms.filter((p) => !connectedIds.has(p)).map((p) => {
+              const meta = platformMeta[p];
+              return (
+                <a key={p} href={`/api/auth/${p}`}
+                  className="flex items-center gap-3 p-4 bg-surface border border-border rounded-2xl hover:border-primary hover:bg-primary/[0.02] transition-all group">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: meta.color + "12" }}>
+                    <meta.Icon size={20} className="opacity-80" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-text-primary">{meta.name}</p>
+                    <p className="text-xs text-text-muted">Click to connect</p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-muted group-hover:text-primary transition-colors"><polyline points="9 18 15 12 9 6" /></svg>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {loading && <div className="text-center py-10 text-text-muted text-sm">Loading accounts...</div>}
+
+      <div className="mt-8 flex gap-3">
+        <Link href="/dashboard" className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all">
+          Go to Dashboard
+        </Link>
+        <Link href="/settings" className="px-6 py-3 border border-border text-text-secondary rounded-xl text-sm font-medium hover:border-primary hover:text-primary transition-all">
+          Settings
+        </Link>
       </div>
     </div>
   );

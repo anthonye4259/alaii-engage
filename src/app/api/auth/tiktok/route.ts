@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 // TikTok OAuth — Uses TikTok Login Kit
 export async function GET() {
   const clientKey = process.env.TIKTOK_CLIENT_KEY;
+  if (!clientKey) return NextResponse.json({ error: "TikTok connection not configured. Set TIKTOK_CLIENT_KEY." }, { status: 503 });
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/tiktok/callback`;
 
   const scopes = [

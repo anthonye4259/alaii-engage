@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 // Reddit OAuth 2.0
 export async function GET() {
   const clientId = process.env.REDDIT_CLIENT_ID;
+  if (!clientId) return NextResponse.json({ error: "Reddit connection not configured. Set REDDIT_CLIENT_ID." }, { status: 503 });
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/reddit/callback`;
 
   const scopes = [

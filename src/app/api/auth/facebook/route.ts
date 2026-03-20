@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 // Facebook OAuth — Uses Meta Graph API
 export async function GET() {
   const clientId = process.env.META_APP_ID;
+  if (!clientId) return NextResponse.json({ error: "Facebook connection not configured. Set META_APP_ID." }, { status: 503 });
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/facebook/callback`;
 
   const scopes = [

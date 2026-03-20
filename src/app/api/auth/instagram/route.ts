@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 // Requires: instagram_basic, instagram_manage_comments, pages_show_list
 export async function GET() {
   const clientId = process.env.META_APP_ID;
+  if (!clientId) return NextResponse.json({ error: "Instagram connection not configured. Set META_APP_ID." }, { status: 503 });
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/instagram/callback`;
 
   const scopes = [

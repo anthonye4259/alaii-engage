@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
         model: "gpt-4o-mini",
         platform,
         type,
-        user: safeUser(user).email,
       },
     });
   } catch (error) {
