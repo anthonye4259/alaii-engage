@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 // Instagram OAuth — Uses Meta Graph API (same as Facebook)
 // Requires: instagram_basic, instagram_manage_comments, pages_show_list
 export async function GET() {
-  const clientId = process.env.META_APP_ID;
+  const clientId = process.env.META_APP_ID?.trim();
   if (!clientId) return NextResponse.json({ error: "Instagram connection not configured. Set META_APP_ID." }, { status: 503 });
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/instagram/callback`;
+  const redirectUri = `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001").trim()}/api/auth/instagram/callback`;
 
   const scopes = [
     "instagram_basic",

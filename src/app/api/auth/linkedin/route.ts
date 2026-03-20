@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 // LinkedIn OAuth 2.0 - Step 1: Redirect to LinkedIn authorization
 export async function GET(req: NextRequest) {
-  const clientId = process.env.LINKEDIN_CLIENT_ID;
+  const clientId = process.env.LINKEDIN_CLIENT_ID?.trim();
   if (!clientId) return NextResponse.json({ error: "LinkedIn connection not configured. Set LINKEDIN_CLIENT_ID." }, { status: 503 });
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/linkedin/callback`;
+  const redirectUri = `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001").trim()}/api/auth/linkedin/callback`;
 
   // Scopes needed for engagement: post, comment, like, share
   const scopes = [

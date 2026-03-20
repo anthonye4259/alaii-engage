@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 
 // X (Twitter) OAuth 2.0 with PKCE
 export async function GET() {
-  const clientId = process.env.X_CLIENT_ID;
+  const clientId = process.env.X_CLIENT_ID?.trim();
   if (!clientId) return NextResponse.json({ error: "X/Twitter connection not configured. Set X_CLIENT_ID." }, { status: 503 });
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/auth/x/callback`;
+  const redirectUri = `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001").trim()}/api/auth/x/callback`;
 
   const scopes = [
     "tweet.read",

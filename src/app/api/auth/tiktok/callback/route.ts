@@ -6,7 +6,7 @@ import { saveConnectedAccount, registerActiveUser } from "@/lib/connected-accoun
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001").trim();
 
   if (error || !code) {
     return NextResponse.redirect(`${appUrl}/accounts?error=tiktok_denied`);
