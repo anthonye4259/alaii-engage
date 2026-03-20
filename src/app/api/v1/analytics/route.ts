@@ -16,6 +16,7 @@ async function authenticateRequest(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const user = await authenticateRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.plan === "free") return NextResponse.json({ error: "Subscription required.", upgrade: "https://alaii-engage.vercel.app/pricing" }, { status: 403 });
 
   const insights = await getInsights(user.email);
   return NextResponse.json(insights);

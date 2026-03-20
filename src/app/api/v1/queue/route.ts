@@ -23,6 +23,7 @@ async function authenticateRequest(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const user = await authenticateRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.plan === "free") return NextResponse.json({ error: "Subscription required.", upgrade: "https://alaii-engage.vercel.app/pricing" }, { status: 403 });
 
   const items = await getQueue(user.email);
   return NextResponse.json({ items, count: items.length });
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await authenticateRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.plan === "free") return NextResponse.json({ error: "Subscription required.", upgrade: "https://alaii-engage.vercel.app/pricing" }, { status: 403 });
 
   const body = await req.json();
   const {
@@ -157,6 +159,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const user = await authenticateRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.plan === "free") return NextResponse.json({ error: "Subscription required.", upgrade: "https://alaii-engage.vercel.app/pricing" }, { status: 403 });
 
   const body = await req.json();
   const { itemId, action } = body;

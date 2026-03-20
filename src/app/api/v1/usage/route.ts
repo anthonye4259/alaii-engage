@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
+  if (user.plan === "free") return NextResponse.json({ error: "Subscription required.", upgrade: "https://alaii-engage.vercel.app/pricing" }, { status: 403 });
 
   const usage = await getUsage(apiKey);
   return NextResponse.json(usage);

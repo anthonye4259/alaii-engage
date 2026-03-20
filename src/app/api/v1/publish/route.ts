@@ -27,6 +27,7 @@ async function authenticateRequest(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await authenticateRequest(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.plan === "free") return NextResponse.json({ error: "Subscription required.", upgrade: "https://alaii-engage.vercel.app/pricing" }, { status: 403 });
 
   const body = await req.json();
   const { platform, type, caption, imageUrl, items, videoUrl, coverUrl } = body;
