@@ -23,7 +23,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "alaii-engage": {
       "command": "npx",
-      "args": ["-y", "@alaii/mcp-server"],
+      "args": ["-y", "alaii-mcp-server"],
       "env": {
         "ALAII_API_KEY": "ae_your_key"
       }
@@ -43,7 +43,7 @@ Point to your own deployment:
   "mcpServers": {
     "alaii-engage": {
       "command": "npx",
-      "args": ["-y", "@alaii/mcp-server"],
+      "args": ["-y", "alaii-mcp-server"],
       "env": {
         "ALAII_API_KEY": "ae_your_key",
         "ALAII_BASE_URL": "http://localhost:3000"

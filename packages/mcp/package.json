@@ -1,5 +1,5 @@
 {
-  "name": "@alaii/mcp-server",
+  "name": "alaii-mcp-server",
   "version": "0.1.0",
   "description": "MCP server for Alaii Engage — AI social media engagement tools for Claude, ChatGPT, and AI assistants",
   "main": "dist/index.js",
