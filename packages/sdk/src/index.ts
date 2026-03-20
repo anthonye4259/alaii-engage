@@ -114,7 +114,7 @@ export class AlaiEngage {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     if (!res.ok) throw new Error(data.error || "Signup failed");
     return { apiKey: data.user.apiKey, email: data.user.email };
   }
@@ -129,7 +129,7 @@ export class AlaiEngage {
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
 
-    const data = await res.json();
+    const data: any = await res.json();
     if (!res.ok) throw new Error(data.error || `API error ${res.status}`);
     return data as T;
   }
