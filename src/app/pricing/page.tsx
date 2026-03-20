@@ -23,26 +23,7 @@ const subscriptionPlans = [
     ],
     cta: "Start Pro — 7 days free",
     popular: true,
-    priceId: "price_pro_monthly",
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    price: "$99",
-    period: "/month",
-    description: "For agencies managing multiple brands",
-    features: [
-      "Unlimited social accounts",
-      "2,000 engagements/month",
-      "All Pro features",
-      "API access included",
-      "White-label responses",
-      "Multi-brand management",
-      "Dedicated support",
-    ],
-    cta: "Start Agency — 7 days free",
-    popular: false,
-    priceId: "price_agency_monthly",
+    priceId: "price_1TC9w006I3eFkRUmnJbQyWtT",
   },
 ];
 
@@ -191,12 +172,13 @@ export default function PricingPage() {
               ))}
             </ul>
 
-            <a
-              href="/login"
-              className="block w-full py-3.5 rounded-xl text-sm font-semibold text-white gradient-primary text-center shadow-[0_4px_20px_rgba(99,102,241,0.25)]"
+            <button
+              onClick={() => handleSubscribe("price_1TCAQR06I3eFkRUmqqsBTDV8", "api")}
+              disabled={loading === "api"}
+              className={`block w-full py-3.5 rounded-xl text-sm font-semibold text-white gradient-primary text-center shadow-[0_4px_20px_rgba(99,102,241,0.25)] ${loading === "api" ? "opacity-50 cursor-wait" : ""}`}
             >
-              Get your API key — free to start →
-            </a>
+              {loading === "api" ? "Loading..." : "Get your API key — free to start →"}
+            </button>
           </div>
 
           {/* Cost calculator */}

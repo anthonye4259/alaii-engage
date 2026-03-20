@@ -8,7 +8,7 @@
 import { canPerformAction, recordAction, getHumanDelay, type ActionType } from "./rate-limiter";
 import { screenContent, getContentRiskLevel } from "./content-safety";
 import { isAccountSafe, reportIncident } from "./account-health";
-import { callHeadlessService, type HeadlessResponse } from "./headless-client";
+
 
 // Platform API imports
 import * as instagramApi from "./platforms/instagram";
@@ -86,14 +86,7 @@ export async function engage(request: EngageRequest): Promise<EngageResult> {
     const skipped = apiResult && typeof apiResult === "object" && "skipped" in apiResult && (apiResult as { skipped: boolean }).skipped;
 
     if (skipped) {
-      // Try headless fallback if configured
-      const headlessResult = await tryHeadlessFallback(request);
-      if (headlessResult) {
-        recordAction(accountId, action);
-        return { success: true, status: "executed", message: `${action} executed via headless on ${platform}`, platformResponse: headlessResult };
-      }
-      // No headless available — report as skipped
-      return { success: false, status: "blocked", message: `${action} not available via API and headless service not configured` };
+      return { success: false, status: "blocked", message: `${action} not available via official API on ${platform}` };
     }
 
     await recordAction(accountId, action);
@@ -262,50 +255,3 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Try the headless browser fallback for actions not supported by official APIs
- * Only works if HEADLESS_SERVICE_URL is configured and credentials are available
- */
-async function tryHeadlessFallback(request: EngageRequest): Promise<HeadlessResponse | null> {
-  const { platform, action, targetId, content, metadata } = request;
-
-  // Only these platforms have headless connectors
-  const headlessPlatforms = ["instagram", "tiktok", "x", "reddit"];
-  if (!headlessPlatforms.includes(platform)) return null;
-
-  // Need credentials for headless (stored in metadata)
-  const username = metadata?.headlessUsername;
-  const password = metadata?.headlessPassword;
-  if (!username || !password) {
-    console.log(`[engage] No headless credentials for ${platform}, skipping fallback`);
-    return null;
-  }
-
-  // Map agent action types to headless action types
-  const actionMap: Record<string, string> = {
-    like_mention: "like",
-    like_comment: "like",
-    reply_own_comment: "comment",
-    comment_hashtag: "comment",
-    dm_new_follower: "comment",
-    repost: "retweet",
-  };
-
-  const headlessAction = actionMap[action];
-  if (!headlessAction) return null;
-
-  console.log(`[engage] Trying headless fallback: ${headlessAction} on ${platform}`);
-
-  const result = await callHeadlessService({
-    platform: platform as "instagram" | "tiktok" | "x" | "reddit",
-    accountId: request.accountId,
-    credentials: { username, password },
-    action: headlessAction as "like" | "comment" | "follow" | "retweet" | "upvote" | "engage_feed",
-    target: targetId,
-    content,
-    proxy: metadata?.proxyServer ? { server: metadata.proxyServer } : undefined,
-    maxActions: 5,
-  });
-
-  return result;
-}

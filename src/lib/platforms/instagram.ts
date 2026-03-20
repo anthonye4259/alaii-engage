@@ -121,3 +121,174 @@ export async function getCommentById(commentId: string, options: IGOptions) {
   }
 }
 
+// ─── Content Publishing API ──────────────────────────────────────────────────
+
+/**
+ * Publish a single photo to Instagram
+ * Two-step process: create container → publish
+ */
+export async function publishPhoto(
+  imageUrl: string,
+  caption: string,
+  options: IGOptions
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    // Step 1: Create media container
+    const containerRes = await fetch(`${GRAPH_API}/${options.igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image_url: imageUrl,
+        caption,
+        access_token: options.accessToken,
+      }),
+    });
+    const container = await containerRes.json();
+    if (!container.id) return { success: false, error: container.error?.message || "Failed to create container" };
+
+    // Step 2: Wait for container to process then publish
+    await waitForContainer(container.id, options);
+
+    const publishRes = await fetch(`${GRAPH_API}/${options.igUserId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creation_id: container.id,
+        access_token: options.accessToken,
+      }),
+    });
+    const published = await publishRes.json();
+    return { success: !!published.id, id: published.id, error: published.error?.message };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Publish a carousel (multiple images) to Instagram
+ */
+export async function publishCarousel(
+  items: { imageUrl: string }[],
+  caption: string,
+  options: IGOptions
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    // Step 1: Create individual item containers
+    const childIds: string[] = [];
+    for (const item of items) {
+      const res = await fetch(`${GRAPH_API}/${options.igUserId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_url: item.imageUrl,
+          is_carousel_item: true,
+          access_token: options.accessToken,
+        }),
+      });
+      const data = await res.json();
+      if (!data.id) return { success: false, error: `Failed to create carousel item: ${data.error?.message}` };
+      childIds.push(data.id);
+    }
+
+    // Step 2: Create carousel container
+    const carouselRes = await fetch(`${GRAPH_API}/${options.igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        media_type: "CAROUSEL",
+        children: childIds,
+        caption,
+        access_token: options.accessToken,
+      }),
+    });
+    const carousel = await carouselRes.json();
+    if (!carousel.id) return { success: false, error: carousel.error?.message || "Failed to create carousel" };
+
+    // Step 3: Wait and publish
+    await waitForContainer(carousel.id, options);
+
+    const publishRes = await fetch(`${GRAPH_API}/${options.igUserId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creation_id: carousel.id,
+        access_token: options.accessToken,
+      }),
+    });
+    const published = await publishRes.json();
+    return { success: !!published.id, id: published.id, error: published.error?.message };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Publish a reel (video) to Instagram
+ */
+export async function publishReel(
+  videoUrl: string,
+  caption: string,
+  options: IGOptions,
+  coverUrl?: string
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    // Step 1: Create reel container
+    const containerBody: Record<string, string> = {
+      media_type: "REELS",
+      video_url: videoUrl,
+      caption,
+      access_token: options.accessToken,
+    };
+    if (coverUrl) containerBody.cover_url = coverUrl;
+
+    const containerRes = await fetch(`${GRAPH_API}/${options.igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(containerBody),
+    });
+    const container = await containerRes.json();
+    if (!container.id) return { success: false, error: container.error?.message || "Failed to create reel container" };
+
+    // Step 2: Wait for video processing (reels take longer)
+    await waitForContainer(container.id, options, 60000); // Up to 60s for video
+
+    // Step 3: Publish
+    const publishRes = await fetch(`${GRAPH_API}/${options.igUserId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creation_id: container.id,
+        access_token: options.accessToken,
+      }),
+    });
+    const published = await publishRes.json();
+    return { success: !!published.id, id: published.id, error: published.error?.message };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Wait for a media container to finish processing
+ */
+async function waitForContainer(
+  containerId: string,
+  options: IGOptions,
+  maxWaitMs = 30000
+): Promise<void> {
+  const startTime = Date.now();
+  const interval = 3000;
+
+  while (Date.now() - startTime < maxWaitMs) {
+    const statusRes = await fetch(
+      `${GRAPH_API}/${containerId}?fields=status_code&access_token=${options.accessToken}`
+    );
+    const status = await statusRes.json();
+
+    if (status.status_code === "FINISHED") return;
+    if (status.status_code === "ERROR") throw new Error("Container processing failed");
+
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}
+

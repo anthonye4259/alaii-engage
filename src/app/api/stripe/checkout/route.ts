@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getCurrentUser, authenticateApiKey } from "@/lib/auth";
 
-const PRICE_TO_PLAN: Record<string, "pro" | "agency"> = {
-  price_pro_monthly: "pro",
-  price_agency_monthly: "agency",
+const PRICE_TO_PLAN: Record<string, "pro" | "api"> = {
+  price_1TC9w006I3eFkRUmnJbQyWtT: "pro",
+  price_1TCAQR06I3eFkRUmqqsBTDV8: "api",
 };
 
 function getStripe() {
